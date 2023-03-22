@@ -11,6 +11,11 @@
  *      Author: JMartus
  */
 
+/*
+#TODO ----------------------------------------------
+- fix bluetoth resetting device?
+*/
+
 #include "Adafruit_DRV2605.h"
 #include <Arduino.h>
 #include "NimBLEDevice.h"
@@ -103,16 +108,19 @@ void loop()
         break;
 
     case GAITGUIDE_STATE_LFC:
+        log_d("Entering LFC_State");
         // Handle Looking-for-connection state
         // #TODO: implement breathing and advertising as well as sleeping
         break;
 
     case GAITGUIDE_STATE_LOW_POWER:
+        log_d("Entering Low Power State");
         // Handle Low-power state
         // #TODO: implement breathing and advertising as well as sleeping
         break;
 
     case GAITGUIDE_STATE_IDLE:
+        log_d("Entering IDLE_State");
         // Handle Idle state
         // time for an event to occur, in case an event occurs dont do idle  tasks
         // #TODO implementiere entsprechenden timer
@@ -122,6 +130,7 @@ void loop()
         break;
 
     case GAITGUIDE_STATE_STIM:
+        log_d("Entering STIM_State");
         // Handle Stimulation state
         haptuation();
         break;

@@ -20,26 +20,28 @@ typedef enum
     BLE_BATTERY_LEVEL_CHARACTERISTIC_UUID = 0x2A19,
     BLE_TX_POWER_LEVEL_CHARACTERISTIC_UUID = 0x2A07,
     BLE_FIRMWARE_REVISION_CHARACTERISTIC_UUID = 0x2A26,
-    // LRA_CONTROL_SERVICE
-    // BLE_LAT_CONNECTED_CHARACTERISTIC_UUID = 0x1112,
-    // BLE_LAT_RUNNING_CHARACTERISTIC_UUID = 0x1113,
-    BLE_MODE_CHARACTERISTIC_UUID = 0x1112,
-    BLE_EFFECTS_CHARACTERISTIC_UUID = 0x1113,
-    BLE_DURATION_CHARACTERISTIC_UUID = 0x1114,
-    BLE_COMMAND_CHARACTERISTIC_UUID = 0x1115,
+    // DEVICE_CONTROL_SERVICE
+    // BLE_LAT_CONNECTED_CHARACTERISTIC_UUID    = 0x1112,
+    // BLE_LAT_RUNNING_CHARACTERISTIC_UUID      = 0x1113,
+    BLE_CONTROL_CHARACTERISTIC_UUID = 0x1112,
+    BLE_STIM_MODE_CHARACTERISTIC_UUID = 0x1114,
+    // BLE_EFFECTS_CHARACTERISTIC_UUID          = 0x1113,
+    // BLE_DURATION_CHARACTERISTIC_UUID         = 0x1114,
+    BLE_STIM_COMMAND_CHARACTERISTIC_UUID = 0x1115,
     // LRA_DIAG_SERVICE
     BLE_MED_CONNECTED_CHARACTERISTIC_UUID = 0x2221,
     BLE_MED_RUNNING_CHARACTERISTIC_UUID = 0x2222,
     BLE_LAT_CONNECTED_CHARACTERISTIC_UUID = 0x2223,
     BLE_LAT_RUNNING_CHARACTERISTIC_UUID = 0x2224,
-    BLE_PRESSURE_CHARACTERISTIC_UUID = 0x2225,
+    BLE_PRESSURE_CHARACTERISTIC_UUID = 0x2225
 } CharacteristicUUID_t;
 
+// not used but may be relevant for future use cases
 typedef struct __attribute__((packed))
 {
     uint8_t BLE_COMMAND_DURATION : 8;
     uint8_t BLE_COMMAND_CONTROL_VAL : 8;
-    uint8_t BLE_COMMAND_IDENTIFIER : 7;
+    uint8_t BLE_COMMAND_SEQUENCE : 7;
     bool BLE_COMMAND_POS : 1; // Can be 0: medial or 1: lateral
 } BLE_command_t;
 
@@ -83,16 +85,24 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
         ESP_LOGI(TAG_BLE, "%s: onWrite(), value: %s", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue().c_str());
         switch (pCharacteristic->getUUID().getNative()->u16.value)
         {
-        case BLE_MODE_CHARACTERISTIC_UUID:
+        case BLE_CONTROL_CHARACTERISTIC_UUID:
+            data = pCharacteristic->getValue().data();
+            if ((gaitGuide_event_t)data[0])
+            {
+                ESP_LOGD(TAG_BLE, "Control-Event: #%s", pCharacteristic->getValue().c_str());
+                gaitGuide.newEvent((gaitGuide_event_t)data[0]);
+            }
+            else
+            {
+                ESP_LOGE(TAG_BLE, "Control-Event not allowed: #%s", pCharacteristic->getValue().c_str());
+            }
+            break;
+        case BLE_STIM_MODE_CHARACTERISTIC_UUID:
             ESP_LOGD(TAG_BLE, "Changing Usermode: %s", pCharacteristic->getValue().c_str());
             data = pCharacteristic->getValue().data();
             gaitGuide.stimMode((gaitGuide_stimMode_t)data[0]);
             break;
-        case BLE_EFFECTS_CHARACTERISTIC_UUID:
-            ESP_LOGD(TAG_BLE, "%s: LAT_COMMAND", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue().c_str());
-
-            break;
-        case BLE_COMMAND_CHARACTERISTIC_UUID:
+        case BLE_STIM_COMMAND_CHARACTERISTIC_UUID:
             ESP_LOGD(TAG_BLE, "%s: LAT_COMMAND", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue().c_str());
 
             if (gaitGuide.goLateral || gaitGuide.goMedial)
@@ -130,7 +140,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
                 ESP_LOGI(TAG_BLE, "%s: LAT_RUNNING_CHARACTERISTIC NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
 
                 break;
-            case BLE_MODE_CHARACTERISTIC_UUID:
+            case BLE_STIM_MODE_CHARACTERISTIC_UUID:
                 ESP_LOGI(TAG_BLE, "%s: LAT_MODE NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
 
                 break;
@@ -255,7 +265,7 @@ NimBLEUUID ble_firmware_revision_characteristic_uuid = NimBLEUUID(BLE_FIRMWARE_R
 NimBLEUUID ble_lat_service_uuid = NimBLEUUID(BLE_LRA_CONTROL_SERVICE_UUID);
 NimBLEUUID ble_lat_connected_characteristic_uuid = NimBLEUUID(BLE_LAT_CONNECTED_CHARACTERISTIC_UUID);
 NimBLEUUID ble_lat_running_characteristic_uuid = NimBLEUUID(BLE_LAT_RUNNING_CHARACTERISTIC_UUID);
-NimBLEUUID ble_lat_mode_characteristic_uuid = NimBLEUUID(BLE_MODE_CHARACTERISTIC_UUID);
+NimBLEUUID ble_lat_mode_characteristic_uuid = NimBLEUUID(BLE_STIM_MODE_CHARACTERISTIC_UUID);
 NimBLEUUID ble_lat_effect_characteristic_uuid = NimBLEUUID(BLE_EFFECTS_CHARACTERISTIC_UUID);
 NimBLEUUID ble_lat_duration_characteristic_uuid = NimBLEUUID(BLE_DURATION_CHARACTERISTIC_UUID);
 NimBLEUUID ble_lat_command_characteristic_uuid = NimBLEUUID(BLE_COMMAND_CHARACTERISTIC_UUID);

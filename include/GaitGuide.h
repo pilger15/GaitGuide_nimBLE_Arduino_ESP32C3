@@ -46,8 +46,9 @@ typedef enum
 
 typedef enum
 {
-    GAITGUIDE_EVENT_NONE,          ///< Default event: No Event
-    GAITGUIDE_EVENT_RESET,         ///< Reset event: sets device into Start-up state
+    GAITGUIDE_EVENT_NONE,  ///< Default event: No Event
+    GAITGUIDE_EVENT_RESET, ///< Reset event: sets device into Start-up state
+    GAITGUIDE_EVENT_STOP,
     GAITGUIDE_EVENT_DONE,          ///< Done event: signals the completion of a task
     GAITGUIDE_EVENT_SLEEP,         ///< Sets the device into low power mode
     GAITGUIDE_EVENT_WAKEUP,        ///< Wake the device up from low power mode
@@ -83,13 +84,13 @@ public:
     void setFirmwareVersion(std::string newVersion);
 
     uint8_t batteryLevel() const;
-    void batteryLevel(uint8_t value);
+    void batteryLevel(uint8_t batteryLevel);
 
     uint8_t subjectId() const;
-    void subjectId(uint8_t value);
+    void subjectId(uint8_t subjectId);
 
     uint16_t currentPressureLevel() const;
-    void set_currentPressureLevel(uint16_t value);
+    void set_currentPressureLevel(uint16_t currentPrepressureLevelssureLevel);
 
     void setTargetPressure();
     void setTargetPressure(uint8_t subjectId);
@@ -166,6 +167,8 @@ private:
     uint16_t m_currentPressure = 0;
     uint16_t m_targetPressure = 0;
     bool m_is_timescale_5ms = false;
+
+    uint8_t m_packet_seq = 0; // for
 
     gaitGuide_state_t m_currentState = GAITGUIDE_STATE_STARTUP;
     gaitGuide_event_t m_currentEvent = GAITGUIDE_EVENT_NONE;

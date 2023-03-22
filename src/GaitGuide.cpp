@@ -33,6 +33,7 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 {
     uint8_t ret = 0;
     noInterrupts();
+    log_d("NEW EVENT: %d, current State: %d", (uint8_t)event, m_currentState);
     if (m_currentEvent != GAITGUIDE_EVENT_NONE)
     {
         ESP_LOGE("EVENT", "Previous event is not yet done");
@@ -40,9 +41,12 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
     }
     else
     {
+        log_d("\n--------------\n debug point 0");
         m_currentEvent = event;
-        if (m_currentEvent = GAITGUIDE_EVENT_RESET)
+        log_d("Current EVENT: %d, current State: %d", m_currentEvent, m_currentState);
+        if (m_currentEvent == GAITGUIDE_EVENT_RESET)
         {
+            log_i("restarting device...");
             ESP.restart();
         }
         else if (m_currentEvent != GAITGUIDE_EVENT_NONE)
@@ -52,7 +56,7 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
             {
             case GAITGUIDE_STATE_STARTUP:
                 // Handle Start-up state
-                if (m_currentEvent = GAITGUIDE_EVENT_DONE)
+                if (m_currentEvent == GAITGUIDE_EVENT_DONE)
                 {
                     ESP_LOGI("EVENT", "ON_STARTUP_DONE: Switching from STARTUP to LOOKING for connection");
                     m_currentState = GAITGUIDE_STATE_LFC;
@@ -62,26 +66,24 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
                 break;
 
             case GAITGUIDE_STATE_LFC:
-                // Handle Looking-for-connection state        if (m_currentEvent = GAITGUIDE_EVENT_DONE)
-                if (m_currentEvent = GAITGUIDE_EVENT_SLEEP)
+                // Handle Looking-for-connection state        if (m_currentEvent ==GAITGUIDE_EVENT_DONE)
+                if (m_currentEvent == GAITGUIDE_EVENT_SLEEP)
                 {
                     ESP_LOGI("EVENT", "ON_SLEEP: Switching from Looking for connection to LOW Power Mode");
                     // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_LOW_POWER;
                     break;
                 }
-                if (m_currentEvent = GAITGUIDE_EVENT_BT_CONNECT)
+                if (m_currentEvent == GAITGUIDE_EVENT_BT_CONNECT)
                 {
                     ESP_LOGI("EVENT", "BT_CONNECT: Switching from Looking for connection to IDLE");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_LOW_POWER;
 
                     break;
                 }
-                if (m_currentEvent = GAITGUIDE_EVENT_SLEEP)
+                if (m_currentEvent == GAITGUIDE_EVENT_SLEEP)
                 {
                     ESP_LOGI("EVENT", "ON_SLEEP: Switching from Looking for connection to LOW Power Mode");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_LOW_POWER;
 
                     break;
@@ -90,10 +92,9 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 
             case GAITGUIDE_STATE_LOW_POWER:
                 // Handle Low-power state
-                if (m_currentEvent = GAITGUIDE_EVENT_WAKEUP)
+                if (m_currentEvent == GAITGUIDE_EVENT_WAKEUP)
                 {
                     ESP_LOGI("EVENT", "ON_WAKEUP: Switching from LOW Power Mode to looking for connection");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_LFC;
 
                     break;
@@ -102,26 +103,23 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 
             case GAITGUIDE_STATE_IDLE:
                 // Handle Idle state
-                if (m_currentEvent = GAITGUIDE_EVENT_FIND_PRESSURE)
+                if (m_currentEvent == GAITGUIDE_EVENT_FIND_PRESSURE)
                 {
                     ESP_LOGI("EVENT", "FIND_PRESSURE: Switching from IDLE Mode to STATE_PRESSURE_SENSING");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_PRESSURE_SENSING;
 
                     break;
                 }
-                if (m_currentEvent = GAITGUIDE_EVENT_SET_PRESSURE)
+                if (m_currentEvent == GAITGUIDE_EVENT_SET_PRESSURE)
                 {
                     ESP_LOGI("EVENT", "SET_PRESSURE: Switching from IDLE Mode to STATE_PRESSURE_SETTING");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_PRESSURE_SETTING;
 
                     break;
                 }
-                if (m_currentEvent = GAITGUIDE_EVENT_STIM)
+                if (m_currentEvent == GAITGUIDE_EVENT_STIM)
                 {
                     ESP_LOGI("EVENT", "FIND_PRESSURE: Switching from IDLE Mode to STIM_MODE");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_STIM;
 
                     break;
@@ -130,10 +128,9 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 
             case GAITGUIDE_STATE_STIM:
                 // Handle Stimulation state
-                if (m_currentEvent = GAITGUIDE_EVENT_DONE)
+                if (m_currentEvent == GAITGUIDE_EVENT_DONE)
                 {
                     ESP_LOGI("EVENT", "Stimulation Done: Switching to IDLE Mode");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_IDLE;
 
                     break;
@@ -142,10 +139,9 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 
             case GAITGUIDE_STATE_PRESSURE_SENSING:
                 // Handle Pressure-finding state
-                if (m_currentEvent = GAITGUIDE_EVENT_DONE)
+                if (m_currentEvent == GAITGUIDE_EVENT_DONE)
                 {
                     ESP_LOGI("EVENT", "PRESSURE_SENSING Done: Switching to IDLE Mode");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_IDLE;
 
                     break;
@@ -154,10 +150,9 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 
             case GAITGUIDE_STATE_PRESSURE_SETTING:
                 // Handle Pressure-setting state
-                if (m_currentEvent = GAITGUIDE_EVENT_DONE)
+                if (m_currentEvent == GAITGUIDE_EVENT_DONE)
                 {
                     ESP_LOGI("EVENT", "PRESSURE_SETTING Done: Switching to IDLE Mode");
-                    // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_IDLE;
 
                     break;
@@ -200,16 +195,18 @@ uint8_t GaitGuide::batteryLevel() const
     return m_batteryLevel;
 }
 
-void GaitGuide::batteryLevel(uint8_t value)
+void GaitGuide::batteryLevel(uint8_t batteryLevel)
 {
-    m_batteryLevel = value;
+    m_batteryLevel = batteryLevel;
 }
 
 uint8_t GaitGuide::subjectId() const
 {
+    return m_subjectID;
 }
-void GaitGuide::subjectId(uint8_t value)
+void GaitGuide::subjectId(uint8_t subjectId)
 {
+    m_subjectID = subjectId;
 }
 
 uint16_t GaitGuide::currentPressureLevel() const
@@ -217,9 +214,9 @@ uint16_t GaitGuide::currentPressureLevel() const
     return m_currentPressure;
 }
 
-void GaitGuide::set_currentPressureLevel(uint16_t value)
+void GaitGuide::set_currentPressureLevel(uint16_t pressureLevel)
 {
-    m_currentPressure = value;
+    m_currentPressure = pressureLevel;
     if (m_currentPressureChangedCallback)
     {
         m_currentPressureChangedCallback(m_currentPressure);
@@ -273,7 +270,14 @@ void GaitGuide::timescale(bool is_timescale_5ms)
 void GaitGuide::setCommand(const uint8_t *data)
 {
     uint8_t driver_side;
-    driver_side = data[1]; // medial or lateral
+    uint8_t packet_seq = data[2] & 0x7F; // #Todo include packet_seq to ensure no data has been missing
+    if (packet_seq != m_packet_seq++)
+    {
+        // #TODO errorhandling;
+        // make packet_seq skip to new value
+        m_packet_seq = packet_seq;
+    }
+    driver_side = data[2]; // medial or lateral
 
     if (driver_side == drv_medial)
     {
@@ -285,7 +289,7 @@ void GaitGuide::setCommand(const uint8_t *data)
         goLateral = true;
         goMedial = false;
     }
-    m_amplitude[0] = data[1] & 0x7F; // amplitude can be 0-127. effects are within that range as well bit 7 will control the side (medial/lateral)
+    m_amplitude[0] = data[1]; // amplitude can be 0-127. effects are within that range as well bit 7 will control the side (medial/lateral)
 
     m_duration[0] = data[0];
 }
