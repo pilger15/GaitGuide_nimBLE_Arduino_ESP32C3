@@ -201,12 +201,12 @@ void DRV2605_UTIL::stopLateral()
     digitalWrite(_trig_lateral, LOW);
 }
 
-void DRV2605_UTIL::startAll()
+void DRV2605_UTIL::start()
 {
     digitalWrite(_trig_medial, HIGH);
     digitalWrite(_trig_lateral, HIGH);
 }
-void DRV2605_UTIL::stopAll()
+void DRV2605_UTIL::stop()
 {
     digitalWrite(_trig_medial, LOW);
     digitalWrite(_trig_lateral, LOW);
@@ -251,16 +251,7 @@ void DRV2605_UTIL::disableLateral()
 {
     digitalWrite(_en_lateral, LOW);
 }
-void DRV2605_UTIL::enableAll()
-{
-    digitalWrite(_en_medial, HIGH);
-    digitalWrite(_en_lateral, HIGH);
-}
-void DRV2605_UTIL::disableAll()
-{
-    digitalWrite(_en_medial, LOW);
-    digitalWrite(_en_lateral, LOW);
-}
+
 bool DRV2605_UTIL::timescale()
 {
     return _is_timescale_1ms;

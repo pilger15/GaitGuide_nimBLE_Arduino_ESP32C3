@@ -170,7 +170,9 @@ private:
 
     uint8_t m_packet_seq = 0; // for
 
-    gaitGuide_state_t m_currentState = GAITGUIDE_STATE_STARTUP;
+    // gaitGuide_state_t m_currentState = GAITGUIDE_STATE_STARTUP;
+    gaitGuide_state_t m_currentState = GAITGUIDE_STATE_STIM;
+
     gaitGuide_event_t m_currentEvent = GAITGUIDE_EVENT_NONE;
 
     const char *m_nvs_namespace = "gaitguide_NVS";

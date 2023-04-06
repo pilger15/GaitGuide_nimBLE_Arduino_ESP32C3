@@ -30,7 +30,10 @@
 #define I2C_SDA D5
 #define I2C_SCL D6
 #define I2C_FREQ 20000UL // 500000UL
-
+#define TRIGGER_MEDIAL D3
+#define TRIGGER_LATERAL D4
+#define ENABLE_MEDIAL D2
+#define ENABLE_LATERAL D1
 // TwoWire I2C = TwoWire(0);
 
 DRV2605_UTIL drv;
@@ -65,9 +68,6 @@ uint16_t targetLED = 1400;
 uint16_t margin = 100;
 uint16_t bound = 500;
 
-#define TRIGGER_MEDIAL D7
-#define TRIGGER_LATERAL D8
-
 auto &gaitGuide = GaitGuide::getInstance();
 gaitGuide_stimMode_t stimMode = gaitGuide.stimMode();
 
@@ -84,16 +84,21 @@ void setup()
     Wire.setPins(I2C_SDA, I2C_SCL);
     // I2C.begin(I2C_SDA, I2C_SCL, I2C_FREQ);
     delay(1);
+    drv.setTrigger(TRIGGER_MEDIAL, TRIGGER_LATERAL);
+    drv.setEnable(ENABLE_MEDIAL, ENABLE_LATERAL);
     drv.begin();
     drv.enable();
     drv.init();
 
     drv.disable();
+
     ble_setup(deviceName);
     led_setup();
     configure_adc(ADC_WIDTH_BIT_12, ADC_ATTEN_DB_11);
-    gaitGuide.stimMode(GAITGUIDE_USERMODE_AMPLITUDE);
-
+    ;
+    log_d("STARTING DEMO MODE - Fix for production!");
+    gaitGuide.stimMode(GAITGUIDE_USERMODE_DEMO00);
+    gaitGuide.newEvent(GAITGUIDE_EVENT_STIM);
     delay(5000);
 }
 void loop()
@@ -229,7 +234,7 @@ void haptuation()
         drv.setRealtimeValue(gaitGuide.amp());
         delay(gaitGuide.duration());
         drv.setRealtimeValue(0x00);
-        drv.disableAll();
+        drv.disable();
         //  ESP_LOGD(TAG_DRV, "SetRealtimeValue = %d for %dms", gaitGuide.amp(), gaitGuide.duration());
         break;
 
@@ -246,8 +251,8 @@ void haptuation()
             drv.startLateral();
         }
         delay(gaitGuide.duration());
-        drv.stopAll();
-        drv.disableAll();
+        drv.stop();
+        drv.disable();
         //   ESP_LOGD(TAG_DRV, "Effect #%d: %s for %dms", gaitGuide.effect(0), drv_effect_string_map[gaitGuide.effect(0)], gaitGuide.duration());
         break;
 
@@ -257,9 +262,6 @@ void haptuation()
     case GAITGUIDE_USERMODE_DEMO00:
 
         //** ROB MODE **/
-
-        pinMode(TRIGGER_MEDIAL, OUTPUT);
-        pinMode(TRIGGER_LATERAL, OUTPUT);
 
         drv.enable();
         drv.setMode(DRV2605_MODE_EXTTRIGLVL);
@@ -272,24 +274,19 @@ void haptuation()
         drv.disable();
         while (gaitGuide.stimMode() == GAITGUIDE_USERMODE_DEMO00)
         {
+            drv.enableMedial();
             // #TODO: move to drv
-            drv.enable();
-            drv.startAll();
-            delay(150);
-            // stop
-            // drv.writeRegister8(DRV2605_REG_GO, 0);
-            drv.stopAll();
-            delay(1000);
-            drv.disableLateral();
+            log_d("USERDEMO\n---------\n");
+
             drv.startMedial();
             // digitalWrite(TRIGGER_LATERAL, HIGH);
             delay(150);
             // stop
             // drv.writeRegister8(DRV2605_REG_GO, 0);
             drv.stopMedial();
-            drv.disableLateral();
+            drv.disableMedial();
             // digitalWrite(TRIGGER_LATERAL, LOW);
-            delay(1000);
+            delay(10000);
         }
 
         ESP_LOGD(TAG_DRV, "SetRealtimeValue = %d for %dms", gaitGuide.amp(), gaitGuide.duration());

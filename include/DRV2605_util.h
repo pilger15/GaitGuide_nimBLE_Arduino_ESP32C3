@@ -206,8 +206,8 @@ public:
 	void startLateral();
 	void stopLateral();
 
-	void startAll();
-	void stopAll();
+	void start();
+	void stop();
 
 	void setEnable(uint8_t medial, uint8_t lateral);
 	void enable();
@@ -217,9 +217,6 @@ public:
 
 	void enableLateral();
 	void disableLateral();
-
-	void enableAll();
-	void disableAll();
 
 	bool timescale();
 	void timescale(bool is_timescale_1ms);

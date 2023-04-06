@@ -34,14 +34,13 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
     uint8_t ret = 0;
     noInterrupts();
     log_d("NEW EVENT: %d, current State: %d", (uint8_t)event, m_currentState);
-    if (m_currentEvent != GAITGUIDE_EVENT_NONE)
+    if (m_currentEvent != GAITGUIDE_EVENT_NONE && event != GAITGUIDE_EVENT_NONE)
     {
         ESP_LOGE("EVENT", "Previous event is not yet done");
         ret = 1;
     }
     else
     {
-        log_d("\n--------------\n debug point 0");
         m_currentEvent = event;
         log_d("Current EVENT: %d, current State: %d", m_currentEvent, m_currentState);
         if (m_currentEvent == GAITGUIDE_EVENT_RESET)
