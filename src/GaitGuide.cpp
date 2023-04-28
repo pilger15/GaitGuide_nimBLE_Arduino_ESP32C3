@@ -244,16 +244,16 @@ uint16_t GaitGuide::getTargetPressure(uint8_t subjectID)
     return m_targetPressure;
 }
 
-// #TODO implement getbackup
+// #TODO implement get backup of subjectIDs pressure
 
 gaitGuide_stimMode_t GaitGuide::stimMode() const
 {
-    return _userMode;
+    return _stimMode;
 }
 
 void GaitGuide::stimMode(gaitGuide_stimMode_t value)
 {
-    _userMode = value;
+    _stimMode = value;
 }
 
 bool GaitGuide::timescale()
