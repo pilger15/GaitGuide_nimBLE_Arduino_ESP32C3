@@ -136,7 +136,6 @@ private:
     GaitGuide &operator=(const GaitGuide &) = delete;
     uint8_t _deviceId;
     std::string _firmwareVersion;
-    gaitGuide_stimMode_t _userMode = gaitGuide_stimMode_t::GAITGUIDE_USERMODE_AMPLITUDE;
 
     void initialiseNVS()
     {
@@ -170,9 +169,8 @@ private:
 
     uint8_t m_packet_seq = 0; // for
 
-    // gaitGuide_state_t m_currentState = GAITGUIDE_STATE_STARTUP;
-    gaitGuide_state_t m_currentState = GAITGUIDE_STATE_STIM;
-
+    gaitGuide_stimMode_t _stimMode = gaitGuide_stimMode_t::GAITGUIDE_USERMODE_AMPLITUDE;
+    gaitGuide_state_t m_currentState = GAITGUIDE_STATE_STARTUP;
     gaitGuide_event_t m_currentEvent = GAITGUIDE_EVENT_NONE;
 
     const char *m_nvs_namespace = "gaitguide_NVS";

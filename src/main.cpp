@@ -13,7 +13,10 @@
 
 /*
 #TODO ----------------------------------------------
-- fix bluetoth resetting device?
+- Option to directly skip to DEMO mode
+- finish pressure sensing back-up and stuff
+- implement acceleration
+- replace drv2605l with drv2604?
 */
 
 #include "Adafruit_DRV2605.h"
@@ -95,11 +98,6 @@ void setup()
     ble_setup(deviceName);
     led_setup();
     configure_adc(ADC_WIDTH_BIT_12, ADC_ATTEN_DB_11);
-    ;
-    log_d("STARTING DEMO MODE - Fix for production!");
-    gaitGuide.stimMode(GAITGUIDE_USERMODE_DEMO00);
-    gaitGuide.newEvent(GAITGUIDE_EVENT_STIM);
-    delay(5000);
 }
 void loop()
 {
