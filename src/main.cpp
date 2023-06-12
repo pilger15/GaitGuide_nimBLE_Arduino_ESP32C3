@@ -13,10 +13,10 @@
 
 /*
 #TODO ----------------------------------------------
-- Option to directly skip to DEMO mode
-- finish pressure sensing back-up and stuff
-- implement acceleration
-- replace drv2605l with drv2604?
+- implement different SPI transactions
+- make DMA transactions for buffer
+- implement USB-Jtag
+-  stream Fifo data
 */
 
 #include "Adafruit_DRV2605.h"
@@ -30,6 +30,13 @@
 #include <LEDS.h>
 #include <ADC_util.h>
 
+#include <IIS3DWB.h>
+
+#include "driver/spi_master.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #define I2C_SDA D5
 #define I2C_SCL D6
 #define I2C_FREQ 20000UL // 500000UL
@@ -38,6 +45,35 @@
 #define ENABLE_MEDIAL D2
 #define ENABLE_LATERAL D1
 // TwoWire I2C = TwoWire(0);
+
+#define SPI_CS_LATERAL GPIO_NUM_5
+#define SPI_CS_MEDIAL GPIO_NUM_6
+#define SPI_CLK GPIO_NUM_8
+#define SPI_MISO GPIO_NUM_9
+#define SPI_MOSI GPIO_NUM_6
+#define SPI_FREQUENCY 10000000 // 10 Mhz max -> may need to be reduced if so check tCS->CLK
+
+#define ACC_WORD 7
+#define BUFFER_WORDS 512
+#define WATERMARK (BUFFER_WORDS / 2)
+#define BUFFER_BYTES (BUFFER_WORDS * ACC_WORD)
+
+#define ACC_SCALE ACCEL_2G
+#define ACC_AXIS Z_AXIS_ONLY
+
+uint8_t medial_acc_buffer[BUFFER_BYTES];
+iis3dwb_device_t acc_medial = {
+    .IDx = 0,
+    .full_scale = ACC_SCALE,
+    .xl_axis = ACC_AXIS,
+    .data_buffer = medial_acc_buffer};
+
+uint8_t lateral_acc_buffer[BUFFER_BYTES];
+iis3dwb_device_t acc_lateral{
+    .IDx = 1,
+    .full_scale = ACC_SCALE,
+    .xl_axis = ACC_AXIS,
+    .data_buffer = lateral_acc_buffer};
 
 DRV2605_UTIL drv;
 bool is_timescale_1ms = false;
@@ -77,6 +113,9 @@ gaitGuide_stimMode_t stimMode = gaitGuide.stimMode();
 void ble_setup();
 void haptuation();
 void findPressure();
+
+void spi_init(void);
+void accelerometer_init(iis3dwb_device_t *device, gpio_num_t cs_pin);
 // void led_setup();
 
 void setup()
@@ -295,196 +334,79 @@ void haptuation()
     }
 }
 
-/*
-     digitalWrite(TRIGGER_MEDIAL, HIGH);
- digitalWrite(TRIGGER_LATERAL, HIGH);
- delay(150);
- // stop
- // drv.writeRegister8(DRV2605_REG_GO, 0);
- digitalWrite(TRIGGER_MEDIAL, LOW);
- digitalWrite(TRIGGER_LATERAL, LOW);
- delay(1000);
+void accelerometer_init(iis3dwb_device_t *device, gpio_num_t cs_pin)
+{
+    // SPI device configuration
+    spi_device_interface_config_t dev_cfg_lateral = {
+        .command_bits = 1, ///< Default amount of bits in command phase (0-16), used when ``SPI_TRANS_VARIABLE_CMD`` is not used, otherwise ignored.
+        .address_bits = 7, ///< Default amount of bits in address phase (0-64), used when ``SPI_TRANS_VARIABLE_ADDR`` is not used, otherwise ignored.
+        .dummy_bits = 0,   ///< Amount of dummy bits to insert between address and data phase
+        .mode = 0,
+        .cs_ena_pretrans = 1, //
+        .cs_ena_posttrans = 1,
+        .clock_speed_hz = SPI_FREQUENCY,
+        .spics_io_num = cs_pin,
+        // .flags = SPI_DEVICE_HALFDUPLEX,
+        .queue_size = 1,
+    };
+    ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &device->spi_config, &device->spi_handle));
 
- digitalWrite(TRIGGER_MEDIAL, HIGH);
- // digitalWrite(TRIGGER_LATERAL, HIGH);
- delay(150);
- // stop
- // drv.writeRegister8(DRV2605_REG_GO, 0);
- digitalWrite(TRIGGER_MEDIAL, LOW);
- // digitalWrite(TRIGGER_LATERAL, LOW);
- delay(1000);
+    ESP_ERROR_CHECK(spi_device_acquire_bus(device->spi_handle, portMAX_DELAY));
 
+    // set to sleep
+    iis3dwb_sleep(device);
+    // iis3dwb_ODR_on_int1(cs_pin); #TODO
+    iis3dwb_reset_set(device);
+    /* Set XL Batch Data Rate */
+    iis3dwb_fifo_xl_batch_set(device, IIS3DWB_XL_BATCHED_AT_26k7Hz);
 
-     switch (stimMode)
-     {
-     case demo_idle:
-         break;
-     case demo_individual_effects:
-         drv.setMode(DRV2605_MODE_INTTRIG);
-         drv.setWaveform(0, effect); // play effect
-         drv.setWaveform(1, 0);      // end waveform
+    /*  Set Temperature Batch Data Rate */
+    iis3dwb_fifo_temp_batch_set(device, IIS3DWB_TEMP_NOT_BATCHED);
 
-         // play the effect!
-         ESP_LOGI(TAG_DRV, "Effect #%d: %s for %dms", effect, drv_effect_string_map[effect], effect_duration);
-         drv.go();
-         delay(effect_duration);
-         // stop
-         drv.writeRegister8(DRV2605_REG_GO, 0);
-         if (effect_list_index >= effect_list_size)
-         {
-             ESP_LOGI(TAG_DRV, "-------");
-             // stimMode = demo_repeated;
-             effect_list_index = 0;
-         }
-         break;
-     case demo_effects_loop:
-         drv.setMode(DRV2605_MODE_INTTRIG);
-         effect = effect_list[effect_list_index];
-         drv.setWaveform(0, effect); // play effect
-         drv.setWaveform(1, 0);      // end waveform
+    /* Set  FIFO Bypass Mode */
+    iis3dwb_fifo_mode_set(device, IIS3DWB_BYPASS_MODE);
 
-         // play the effect!
-         ESP_LOGI(TAG_DRV, "Effect #%d: %s for 100ms", effect, drv_effect_string_map[effect]);
-         drv.go();
-         delay(100);
-         // stop
-         drv.writeRegister8(DRV2605_REG_GO, 0);
-         effect_list_index++;
-         if (effect_list_index >= effect_list_size)
-         {
-             ESP_LOGI(TAG_DRV, "-------");
-             // stimMode = demo_repeated;
-             effect_list_index = 0;
-         }
-         break;
+    /* Set  FIFO Watermark */
+    iis3dwb_fifo_watermark_set(device, WATERMARK); // Total Bytes =  Number of words * FIFO_WORD (7 or 6) + 1 to account for occasional temperature datum
 
-     case demo_repeated:
-         drv.setMode(DRV2605_MODE_INTTRIG);
-         effect = effect_list[effect_list_index];
+    /* Set default acceleration scale */
+    iis3dwb_xl_full_scale_set(device, ACCEL_2G);
 
-         for (uint8_t i = 0; i < 8; i++)
-         {
-             drv.setWaveform(i, effect); // wobble effects
-         }
-         for (uint8_t i = 20; i <= 100; i += 20)
-         {
-             ESP_LOGI(TAG_DRV, "EffectArray #%d: %s for %dms", effect, drv_effect_string_map[effect], i);
-             drv.go();
-             delay(i);
-             // stop
-             drv.writeRegister8(DRV2605_REG_GO, 0);
-             delay(1000);
-         }
+    iis3dwb_axis_sel_set(device, Z_AXIS_ONLY);
 
-         effect_list_index++;
-         if (effect_list_index >= effect_list_size)
-         {
-             ESP_LOGI(TAG_DRV, "-------");
-             // stimMode = demo_rtp_amp;
-             // drv.writeRegister8(DRV2605_REG_MODE, DRV2605_MODE_REALTIME);
-             //  unsigned
-
-             effect_list_index = 0;
-         }
-
-         break;
-
-     case demo_rtp_amp:
-         drv.setMode(DRV2605_MODE_REALTIME);
-         rtp_amp = rtp[rtp_index++];
-         ESP_LOGI(TAG_DRV, "SetRealtimeValue = %d for 100ms", rtp_amp);
-         drv.setRealtimeValue(rtp_amp);
-         delay(100);
-         drv.setRealtimeValue(0x00);
-         if (rtp_index >= rtp_size)
-         {
-             ESP_LOGI(TAG_DRV, "-------");
-             // stimMode = demo_rtp_time;
-             //  drv.writeRegister8(DRV2605_REG_MODE, DRV2605_MODE_INTTRIG);
-             rtp_index = 0;
-         }
-
-         break;
-
-     case demo_rtp_time:
-         drv.setMode(DRV2605_MODE_REALTIME);
-         for (uint8_t i = 10; i <= 100; i += 10)
-         {
-             ESP_LOGI(TAG_DRV, "SetRealtimeValue = 127 for %dms", i);
-             drv.setRealtimeValue(127);
-             delay(i);
-             drv.setRealtimeValue(0x00);
-             delay(1000);
-         }
-         ESP_LOGI(TAG_DRV, "-------");
-         // stimMode = demo_individual_effects;
-         // drv.writeRegister8(DRV2605_REG_MODE, DRV2605_MODE_INTTRIG);
-
-         break;
-     case demo_shifting:
-         drv.setMode(DRV2605_MODE_EXTTRIGLVL);
-         effect = DRV_EFF_STRONG_BUZZ_100;
-         for (uint8_t i = 0; i < 8; i++)
-         {
-             drv.setWaveform(i, effect); // wobble effects
-         }
-         for (uint8_t i = 25; i <= 100; i += 25)
-         {
-             // play the effect!
-             ESP_LOGI(TAG_DRV, "TT Effect #%d: %s for %dms", effect, drv_effect_string_map[effect], i);
-             // drv.go();
-
-             digitalWrite(drv_go, HIGH);
-             delay(i);
-             // stop
-             // drv.writeRegister8(DRV2605_REG_GO, 0);
-             digitalWrite(drv_go, LOW);
-             delay(500);
-             digitalWrite(drv_lateral_go, HIGH);
-             delay(i);
-             // stop
-             // drv.writeRegister8(DRV2605_REG_GO, 0);
-             digitalWrite(drv_lateral_go, LOW);
-             delay(500);
-         }
-
-         break;
-
-     default:
-         ESP_LOGI(TAG_DRV, "DEMO not found");
-         break;
-     }
-
-     delay(1000);
- }
- void doDemo(uint8_t *value)
- {
-     stimMode = (DRV_demo_t)value[0];
-     switch (stimMode)
-     {
-     case demo_idle:
-         break;
-     case demo_individual_effects:
-         effect = value[1];
-         effect_duration = value[2];
-         break;
-     case demo_effects_loop:
-         ESP_LOGI(TAG_BLE, "demo_individual_effects");
-         break;
-     case demo_repeated:
-         ESP_LOGI(TAG_BLE, "demo_repeated");
-         break;
-     case demo_rtp_amp:
-         ESP_LOGI(TAG_BLE, "demo_rtp_amp");
-         break;
-     case demo_rtp_time:
-         ESP_LOGI(TAG_BLE, "demo_rtp_time");
-         break;
-     case demo_shifting:
-         ESP_LOGI(TAG_BLE, "demo_shifting");
-         break;
-     default:
-         ESP_LOGI(TAG_BLE, "Invalid DEMO");
-         break;
-     }
+    /*	Configure filtering chain(No aux interface)
+     *	Accelerometer - LPF1 + LPF2 path
      */
+    iis3dwb_xl_hp_path_on_out_set(device, IIS3DWB_LP_6k3Hz);
+    // iis3dwb_xl_filter_lp2_set(handle, PROPERTY_ENABLE);
+    iis3dwb_wake(device);
+
+    /* Wait stable output */
+    if (iis3dwb_who_am_i(device) != IIS3DWB_WHO_AM_I_EXPECTED)
+    {
+        log_e("Device %d was not found", device->IDx);
+    };
+
+    spi_device_release_bus(device->spi_handle);
+}
+
+void spi_init(void)
+{
+
+    // gpio_set_direction(GPIO_NUM_10, GPIO_MODE_OUTPUT); // conversion
+
+    // SPI
+    spi_bus_config_t bus_cfg = {
+        .mosi_io_num = SPI_MOSI,
+        .miso_io_num = SPI_MISO,
+        .sclk_io_num = SPI_CLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 0,
+    };
+    ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO));
+
+    iis3dwb_init(&acc_medial, SPI_CS_MEDIAL);
+    iis3dwb_init(&acc_lateral, SPI_CS_LATERAL);
+    delay(BOOT_TIME);
+}
