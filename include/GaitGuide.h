@@ -34,29 +34,30 @@ typedef enum
 
 typedef enum
 {
-    GAITGUIDE_STATE_STARTUP,          ///< Start-up state
-    GAITGUIDE_STATE_LFC,              ///< Looking-for-connection state
-    GAITGUIDE_STATE_LOW_POWER,        ///< Low-power state
-    GAITGUIDE_STATE_IDLE,             ///< Idle state
-    GAITGUIDE_STATE_STIM,             ///< Stimulation state
-    GAITGUIDE_STATE_PRESSURE_SENSING, ///< Pressure-finding state
-    GAITGUIDE_STATE_PRESSURE_SETTING, ///< Pressure-setting state
-    GAITGUIDE_STATE_CHECK_PRESSURE    ///< Check if currentPressure is within bounds of targetPressure
+    GAITGUIDE_STATE_STARTUP,       ///< Start-up state
+    GAITGUIDE_STATE_LFC,           ///< Looking-for-connection state
+    GAITGUIDE_STATE_LOW_POWER,     ///< Low-power state
+    GAITGUIDE_STATE_IDLE,          ///< Idle state
+    GAITGUIDE_STATE_STIM,          ///< Stimulation state
+    GAITGUIDE_STATE_ACC,           ///< Pressure-finding state
+    GAITGUIDE_STATE_STOP_ACC,      ///< Pressure-setting state
+    GAITGUIDE_STATE_CHECK_PRESSURE ///< Check if currentPressure is within bounds of targetPressure
 } gaitGuide_state_t;
 
 typedef enum
 {
     GAITGUIDE_EVENT_NONE,  ///< Default event: No Event
     GAITGUIDE_EVENT_RESET, ///< Reset event: sets device into Start-up state
-    GAITGUIDE_EVENT_STOP,
+
     GAITGUIDE_EVENT_DONE,          ///< Done event: signals the completion of a task
     GAITGUIDE_EVENT_SLEEP,         ///< Sets the device into low power mode
     GAITGUIDE_EVENT_WAKEUP,        ///< Wake the device up from low power mode
     GAITGUIDE_EVENT_BT_CONNECT,    ///< Bluetooth connection event
     GAITGUIDE_EVENT_BT_DISCONNECT, ///< Bluetooth disconnection event
-    GAITGUIDE_EVENT_FIND_PRESSURE, ///< Pressure-finding event
-    GAITGUIDE_EVENT_SET_PRESSURE,  ///< Pressure-setting event
-    GAITGUIDE_EVENT_STIM           ///< Stimulation event
+    GAITGUIDE_EVENT_ACC,           ///< Start measuring acceleration
+    GAITGUIDE_EVENT_STOP_ACC,      ///< Stop measuring acceleration
+    GAITGUIDE_EVENT_STIM,          ///< Stimulation event
+    GAITGUIDE_EVENT_STOP_STIM      ///< stop Stimulation event
 } gaitGuide_event_t;
 
 typedef enum
@@ -73,6 +74,7 @@ public:
     gaitGuide_state_t currentState();
     gaitGuide_event_t currentEvent();
     uint8_t newEvent(gaitGuide_event_t event);
+    uint8_t nextEvent();
 
     bool goMedial = false;
     bool goLateral = false;

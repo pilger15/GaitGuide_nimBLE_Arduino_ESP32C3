@@ -6,10 +6,10 @@
 #include "soc/gpio_reg.h"
 #include "driver/spi_master.h"
 
-#include "m_spi_esp32c3.h" // helper
+#include <m_spi_esp32c3.h> // helper
 
-#define BOOT_TIME 10                    // in ms
-#define SHUTDOWN_TIME 1                 // in ms should be 100 us
+#define IIS3DWB_BOOT_TIME 10            // in ms
+#define IIS3DWB_SHUTDOWN_TIME 1         // in ms should be 100 us
 #define IIS3DWB_WHO_AM_I_EXPECTED 0x7BU // Device Identification (Who am I)
 
 // IIS3DWB registers - see datasheet
@@ -593,7 +593,7 @@ int16_t iis3dwb_temp_raw(iis3dwb_device_t *device);
 uint8_t iis3dwb_xl_flag_data_ready(iis3dwb_device_t *device);
 
 // --- FIFO ---
-void iis3dwb_fifo_batch_get(iis3dwb_device_t *device, uint8_t num_words);
+void iis3dwb_fifo_batch_get(iis3dwb_device_t *device, uint16_t num_words);
 
 void iis3dwb_fifo_watermark_set(iis3dwb_device_t *device, uint16_t val);
 uint16_t iis3dwb_fifo_watermark_get(iis3dwb_device_t *device);

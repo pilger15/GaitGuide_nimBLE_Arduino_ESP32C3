@@ -1,5 +1,11 @@
 #include "GaitGuide.h"
 
+portMUX_TYPE eventQueueMux = portMUX_INITIALIZER_UNLOCKED;
+#define EVENT_QUEUE_LEN 16
+gaitGuide_event_t eventQueue[EVENT_QUEUE_LEN];
+uint8_t eventQueue_idx = 0;
+uint8_t eventQueue_sel = 0;
+
 GaitGuide::GaitGuide()
 {
     // Initialize NVS
@@ -29,26 +35,53 @@ gaitGuide_event_t GaitGuide::currentEvent()
     return m_currentEvent;
 }
 
+/**
+ * @brief Adds a new event to the event queue.
+ *
+ * This function adds the specified event to the event queue. If the event is a high priority reset event,
+ * it restarts the device. The event is added to the queue, taking into account the circular nature of the queue.
+ * If the event queue is full, an error is logged, and the function returns 1.
+ *
+ * @param event The event to be added.
+ * @return Returns 0 on success or 1 if the event queue is full.
+ */
 uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 {
-    uint8_t ret = 0;
-    noInterrupts();
-    log_d("NEW EVENT: %d, current State: %d", (uint8_t)event, m_currentState);
-    if (m_currentEvent != GAITGUIDE_EVENT_NONE && event != GAITGUIDE_EVENT_NONE)
+    // High priority restart
+    if (event == GAITGUIDE_EVENT_RESET)
     {
-        ESP_LOGE("EVENT", "Previous event is not yet done");
-        ret = 1;
+        // Restart the device
+        ESP.restart();
     }
-    else
+
+    // Add event to the queue
+    portENTER_CRITICAL_ISR(&eventQueueMux);
+    eventQueue[eventQueue_idx++] = event;
+    eventQueue_idx %= EVENT_QUEUE_LEN;
+    if (eventQueue_idx == eventQueue_sel)
     {
-        m_currentEvent = event;
-        log_d("Current EVENT: %d, current State: %d", m_currentEvent, m_currentState);
-        if (m_currentEvent == GAITGUIDE_EVENT_RESET)
+        // Event queue overflow occurred
+        log_e("Event-queue Overflow");
+        return 1;
+    }
+    portEXIT_CRITICAL_ISR(&eventQueueMux);
+
+    return 0;
+}
+
+uint8_t GaitGuide::nextEvent()
+{
+    uint8_t ret = 0;
+    if (eventQueue_idx != eventQueue_sel) // non handled events exist
+    {
+        m_currentEvent = eventQueue[eventQueue_sel++]; // get event from queue
+        eventQueue_sel %= EVENT_QUEUE_LEN;
+        if (m_currentState != GAITGUIDE_STATE_IDLE && m_currentEvent != GAITGUIDE_EVENT_DONE)
         {
-            log_i("restarting device...");
-            ESP.restart();
+            log_e("AcTION EVENT IN NON IDLE STATE\nCURRENT STATE %d, EVENT %d", m_currentState, m_currentEvent);
         }
-        else if (m_currentEvent != GAITGUIDE_EVENT_NONE)
+
+        if (m_currentEvent != GAITGUIDE_EVENT_NONE)
         {
 
             switch (m_currentState)
@@ -57,7 +90,7 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
                 // Handle Start-up state
                 if (m_currentEvent == GAITGUIDE_EVENT_DONE)
                 {
-                    ESP_LOGI("EVENT", "ON_STARTUP_DONE: Switching from STARTUP to LOOKING for connection");
+                    //    ESP_LOGI("EVENT", "ON_STARTUP_DONE: Switching from STARTUP to LOOKING for connection");
                     m_currentState = GAITGUIDE_STATE_LFC;
                     break;
                 }
@@ -68,21 +101,21 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
                 // Handle Looking-for-connection state        if (m_currentEvent ==GAITGUIDE_EVENT_DONE)
                 if (m_currentEvent == GAITGUIDE_EVENT_SLEEP)
                 {
-                    ESP_LOGI("EVENT", "ON_SLEEP: Switching from Looking for connection to LOW Power Mode");
+                    //      ESP_LOGI("EVENT", "ON_SLEEP: Switching from Looking for connection to LOW Power Mode");
                     // #TODO Implement sleep state;
                     m_currentState = GAITGUIDE_STATE_LOW_POWER;
                     break;
                 }
                 if (m_currentEvent == GAITGUIDE_EVENT_BT_CONNECT)
                 {
-                    ESP_LOGI("EVENT", "BT_CONNECT: Switching from Looking for connection to IDLE");
-                    m_currentState = GAITGUIDE_STATE_LOW_POWER;
+                    //   ESP_LOGI("EVENT", "BT_CONNECT: Switching from Looking for connection to IDLE");
+                    m_currentState = GAITGUIDE_STATE_IDLE;
 
                     break;
                 }
                 if (m_currentEvent == GAITGUIDE_EVENT_SLEEP)
                 {
-                    ESP_LOGI("EVENT", "ON_SLEEP: Switching from Looking for connection to LOW Power Mode");
+                    //    ESP_LOGI("EVENT", "ON_SLEEP: Switching from Looking for connection to LOW Power Mode");
                     m_currentState = GAITGUIDE_STATE_LOW_POWER;
 
                     break;
@@ -93,7 +126,7 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
                 // Handle Low-power state
                 if (m_currentEvent == GAITGUIDE_EVENT_WAKEUP)
                 {
-                    ESP_LOGI("EVENT", "ON_WAKEUP: Switching from LOW Power Mode to looking for connection");
+                    //   ESP_LOGI("EVENT", "ON_WAKEUP: Switching from LOW Power Mode to looking for connection");
                     m_currentState = GAITGUIDE_STATE_LFC;
 
                     break;
@@ -102,23 +135,23 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 
             case GAITGUIDE_STATE_IDLE:
                 // Handle Idle state
-                if (m_currentEvent == GAITGUIDE_EVENT_FIND_PRESSURE)
+                if (m_currentEvent == GAITGUIDE_EVENT_ACC)
                 {
-                    ESP_LOGI("EVENT", "FIND_PRESSURE: Switching from IDLE Mode to STATE_PRESSURE_SENSING");
-                    m_currentState = GAITGUIDE_STATE_PRESSURE_SENSING;
+                    //   ESP_LOGI("EVENT", "FIND_PRESSURE: Switching from IDLE Mode to STATE_PRESSURE_SENSING");
+                    m_currentState = GAITGUIDE_STATE_ACC;
 
                     break;
                 }
-                if (m_currentEvent == GAITGUIDE_EVENT_SET_PRESSURE)
+                if (m_currentEvent == GAITGUIDE_EVENT_STOP_ACC)
                 {
-                    ESP_LOGI("EVENT", "SET_PRESSURE: Switching from IDLE Mode to STATE_PRESSURE_SETTING");
-                    m_currentState = GAITGUIDE_STATE_PRESSURE_SETTING;
+                    //  ESP_LOGI("EVENT", "SET_PRESSURE: Switching from IDLE Mode to STATE_PRESSURE_SETTING");
+                    m_currentState = GAITGUIDE_STATE_STOP_ACC;
 
                     break;
                 }
                 if (m_currentEvent == GAITGUIDE_EVENT_STIM)
                 {
-                    ESP_LOGI("EVENT", "FIND_PRESSURE: Switching from IDLE Mode to STIM_MODE");
+                    //  ESP_LOGI("EVENT", "FIND_PRESSURE: Switching from IDLE Mode to STIM_MODE");
                     m_currentState = GAITGUIDE_STATE_STIM;
 
                     break;
@@ -129,29 +162,29 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
                 // Handle Stimulation state
                 if (m_currentEvent == GAITGUIDE_EVENT_DONE)
                 {
-                    ESP_LOGI("EVENT", "Stimulation Done: Switching to IDLE Mode");
+                    //    ESP_LOGI("EVENT", "Stimulation Done: Switching to IDLE Mode");
                     m_currentState = GAITGUIDE_STATE_IDLE;
 
                     break;
                 }
                 break;
 
-            case GAITGUIDE_STATE_PRESSURE_SENSING:
+            case GAITGUIDE_STATE_ACC:
                 // Handle Pressure-finding state
                 if (m_currentEvent == GAITGUIDE_EVENT_DONE)
                 {
-                    ESP_LOGI("EVENT", "PRESSURE_SENSING Done: Switching to IDLE Mode");
+                    //    ESP_LOGI("EVENT", "PRESSURE_SENSING Done: Switching to IDLE Mode");
                     m_currentState = GAITGUIDE_STATE_IDLE;
 
                     break;
                 }
                 break;
 
-            case GAITGUIDE_STATE_PRESSURE_SETTING:
+            case GAITGUIDE_STATE_STOP_ACC:
                 // Handle Pressure-setting state
                 if (m_currentEvent == GAITGUIDE_EVENT_DONE)
                 {
-                    ESP_LOGI("EVENT", "PRESSURE_SETTING Done: Switching to IDLE Mode");
+                    //   ESP_LOGI("EVENT", "PRESSURE_SETTING Done: Switching to IDLE Mode");
                     m_currentState = GAITGUIDE_STATE_IDLE;
 
                     break;
@@ -160,13 +193,13 @@ uint8_t GaitGuide::newEvent(gaitGuide_event_t event)
 
             default:
                 // Handle error state
-                ESP_LOGE("STATE", "Error unknown state");
+                //  ESP_LOGE("STATE", "Error unknown state");
                 ret = 1;
                 break;
             }
         }
     }
-    interrupts();
+    m_currentEvent = GAITGUIDE_EVENT_NONE;
     return ret;
 }
 

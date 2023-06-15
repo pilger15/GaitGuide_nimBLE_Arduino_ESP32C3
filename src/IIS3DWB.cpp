@@ -48,7 +48,7 @@ bool iis3dwb_init(iis3dwb_device_t *device, uint8_t watermark)
     iis3dwb_wake(device);
 
     /* Wait stable output */
-    delay(BOOT_TIME);
+    delay(IIS3DWB_BOOT_TIME);
 
     return true;
 }
@@ -61,7 +61,6 @@ bool iis3dwb_init(iis3dwb_device_t *device, uint8_t watermark)
 void iis3dwb_sleep(iis3dwb_device_t *device)
 {
     iis3dwb_ctrl1_xl_t ctrl1_xl;
-
     m_spi_read_registers(device->spi_handle, IIS3DWB_CTRL1_XL, 1, &ctrl1_xl.data); // read register
     ctrl1_xl.ctrl1_xl.xl_en = IIS3DWB_XL_ODR_OFF;                                  // power down
     m_spi_write_register(device->spi_handle, IIS3DWB_CTRL1_XL, ctrl1_xl.data);     // send modified register
@@ -91,6 +90,7 @@ void iis3dwb_wake(iis3dwb_device_t *device)
 
 uint8_t iis3dwb_who_am_i(iis3dwb_device_t *device)
 {
+
     return m_spi_read_register(device->spi_handle, IIS3DWB_WHO_AM_I);
 }
 
@@ -384,7 +384,7 @@ uint8_t iis3dwb_fifo_sensor_tag_get(iis3dwb_device_t *device)
  * @param  dest	Buffer that stores data read
  *
  */
-void iis3dwb_fifo_batch_get(iis3dwb_device_t *device, uint8_t num_words)
+void iis3dwb_fifo_batch_get(iis3dwb_device_t *device, uint16_t num_words)
 {
     m_spi_read_registers(device->spi_handle, IIS3DWB_FIFO_DATA_OUT_TAG, num_words * 7, device->data_buffer); // read register
 }
@@ -586,14 +586,20 @@ int16_t iis3dwb_fifo_data_level_get(iis3dwb_device_t *device)
     iis3dwb_fifo_status1_t fifo_status1;
     iis3dwb_fifo_status2_t fifo_status2;
     int16_t ret;
+    fifo_status1.data = m_spi_read_register(device->spi_handle, IIS3DWB_FIFO_STATUS1); // read register
+    fifo_status2.data = m_spi_read_register(device->spi_handle, IIS3DWB_FIFO_STATUS2); // read register
 
-    m_spi_read_registers(device->spi_handle, IIS3DWB_FIFO_STATUS1, 1, &fifo_status1.data); // read register
-    m_spi_read_registers(device->spi_handle, IIS3DWB_FIFO_STATUS2, 1, &fifo_status2.data); // read register
+    ret = ((uint16_t)fifo_status2.fifo_status2.diff_fifo << 8) | fifo_status1.fifo_status1.diff_fifo;
 
-    ret = fifo_status2.fifo_status2.diff_fifo;
-    ret = ret << 8;
-    ret += fifo_status1.fifo_status1.diff_fifo;
-
+    if (false)
+    {
+        log_d("\nD%d \n WTM %d \n OVR %d \n FULL %d \n DIFF %x%x \n\n",
+              device->IDx,
+              fifo_status2.fifo_status2.fifo_wtm_ia,
+              fifo_status2.fifo_status2.fifo_ovr_ia,
+              fifo_status2.fifo_status2.fifo_full_ia,
+              fifo_status2.fifo_status2.diff_fifo, fifo_status1.fifo_status1.diff_fifo);
+    }
     return ret;
 }
 

@@ -1,4 +1,21 @@
-#include <m_spi_esp32c3.h>
+#include "m_spi_esp32c3.h"
+
+spi_transaction_t spi_write_register = {
+    .flags = SPI_TRANS_USE_TXDATA,
+    .cmd = SPI_WRITE_CMD,
+    .length = 8,
+    .rxlength = 0};
+spi_transaction_t spi_read_register = {
+    .flags = SPI_TRANS_USE_RXDATA,
+    .cmd = SPI_READ_CMD,
+    .length = 8,
+    .rxlength = 8};
+
+// uint8_t rx_buffer[512 * 7];
+spi_transaction_t spi_read_batch = {
+    //.flags = SPI_DEVICE_HALFDUPLEX,
+    .cmd = SPI_READ_CMD};
+//  .rx_buffer = rx_buffer};
 
 void m_spi_write_register(spi_device_handle_t handle, uint8_t reg, uint8_t val)
 {
@@ -23,11 +40,11 @@ uint8_t m_spi_read_register(spi_device_handle_t handle, uint8_t reg)
 //   start_reg: 8-bit SPI device register
 //   num_bytes: number of bytes to retrieve from SPI device
 //   dest: pointer to a byte/char buffer for storing received bytes
-void m_spi_read_registers(spi_device_handle_t handle, uint8_t start_reg, uint8_t num_bytes, uint8_t *dest)
+void m_spi_read_registers(spi_device_handle_t handle, uint8_t start_reg, uint16_t num_bytes, uint8_t *dest)
 {
-    spi_read_registers.addr = start_reg;
-    spi_read_registers.length = num_bytes;
-    spi_read_registers.rxlength = num_bytes;
-    dest = (uint8_t *)spi_read_registers.rx_buffer;
-    spi_device_polling_transmit(handle, &spi_read_register);
+    spi_read_batch.addr = start_reg;
+    spi_read_batch.length = num_bytes * 8;
+    spi_read_batch.rxlength = num_bytes * 8;
+    spi_read_batch.rx_buffer = dest;
+    spi_device_transmit(handle, &spi_read_batch);
 }
