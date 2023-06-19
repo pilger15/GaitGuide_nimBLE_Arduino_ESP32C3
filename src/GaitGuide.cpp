@@ -299,8 +299,10 @@ void GaitGuide::timescale(bool is_timescale_5ms)
     m_is_timescale_5ms = is_timescale_5ms;
 }
 
-void GaitGuide::setCommand(const uint8_t *data)
+void GaitGuide::setAmplitude(const uint8_t *data)
 {
+    m_amplitude[0] = data[0];
+    /*
     uint8_t driver_side;
     uint8_t packet_seq = data[2] & 0x7F; // #Todo include packet_seq to ensure no data has been missing
     if (packet_seq != m_packet_seq++)
@@ -322,8 +324,24 @@ void GaitGuide::setCommand(const uint8_t *data)
         goMedial = false;
     }
     m_amplitude[0] = data[1]; // amplitude can be 0-127. effects are within that range as well bit 7 will control the side (medial/lateral)
+    */
+    // m_duration[0] = data[0];
+}
+void GaitGuide::setDuration(const uint8_t data, bool driver_side)
+{
 
-    m_duration[0] = data[0];
+    m_duration[0] = data;
+    if (driver_side == drv_medial)
+    {
+        goLateral = false;
+        goMedial = true;
+    }
+    else
+    {
+        goLateral = true;
+        goMedial = false;
+    }
+    newEvent(GAITGUIDE_EVENT_STIM);
 }
 //------------ private functions ---------------
 

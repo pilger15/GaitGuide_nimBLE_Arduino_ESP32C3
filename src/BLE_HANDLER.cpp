@@ -20,12 +20,38 @@ void ble_setup(const std::string &deviceName)
     NimBLEServer *pServer = NimBLEDevice::createServer();
 
     NimBLEService *controlService = pServer->createService((uint16_t)BLE_LRA_CONTROL_SERVICE_UUID);
-    NimBLEService *diagService = pServer->createService((uint16_t)BLE_LRA_DIAG_SERVICE_UUID);
+    // NimBLEService *diagService = pServer->createService((uint16_t)BLE_LRA_DIAG_SERVICE_UUID);
     pServer->setCallbacks(new ServerCallbacks);
     // NimBLECharacteristic *pNonSecureCharacteristic = pService->createCharacteristic("1234", NIMBLE_PROPERTY::READ );
     // NimBLECharacteristic *pSecureCharacteristic = pService->createCharacteristic("1235", NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::READ_ENC | NIMBLE_PROPERTY::READ_AUTHEN);
 
-    NimBLECharacteristic *BLE_Mode = controlService->createCharacteristic((uint16_t)BLE_STIM_MODE_CHARACTERISTIC_UUID,
+    NimBLECharacteristic *BLE_Amplitude = controlService->createCharacteristic((uint16_t)BLE_AMPLITUDE_CHARACTERISTIC_UUID,
+                                                                               NIMBLE_PROPERTY::READ |
+                                                                                   NIMBLE_PROPERTY::WRITE,
+                                                                               //  NIMBLE_PROPERTY::READ_ENC |
+                                                                               //  NIMBLE_PROPERTY::WRITE_ENC,
+                                                                               1);
+    BLE_Amplitude->setCallbacks(&chrCallbacks);
+    BLE_Amplitude->setValue(0x00);
+    NimBLECharacteristic *BLE_Duration_MED = controlService->createCharacteristic((uint16_t)BLE_DURATION_MED_CHARACTERISTIC_UUID,
+                                                                                  NIMBLE_PROPERTY::READ |
+                                                                                      NIMBLE_PROPERTY::WRITE,
+                                                                                  //  NIMBLE_PROPERTY::READ_ENC |
+                                                                                  //  NIMBLE_PROPERTY::WRITE_ENC,
+                                                                                  1);
+    BLE_Duration_MED->setCallbacks(&chrCallbacks);
+    BLE_Duration_MED->setValue(0x00);
+
+    NimBLECharacteristic *BLE_Duration_LAT = controlService->createCharacteristic((uint16_t)BLE_DURATION_LAT_CHARACTERISTIC_UUID,
+                                                                                  NIMBLE_PROPERTY::READ |
+                                                                                      NIMBLE_PROPERTY::WRITE,
+                                                                                  //  NIMBLE_PROPERTY::READ_ENC |
+                                                                                  //  NIMBLE_PROPERTY::WRITE_ENC,
+                                                                                  1);
+    BLE_Duration_LAT->setCallbacks(&chrCallbacks);
+    BLE_Duration_LAT->setValue(0x00);
+
+    /*NimBLECharacteristic *BLE_Mode = controlService->createCharacteristic((uint16_t)BLE_STIM_MODE_CHARACTERISTIC_UUID,
                                                                           NIMBLE_PROPERTY::READ |
                                                                               NIMBLE_PROPERTY::WRITE,
                                                                           // NIMBLE_PROPERTY::READ_ENC |
@@ -46,7 +72,7 @@ void ble_setup(const std::string &deviceName)
                                                                                  NIMBLE_PROPERTY::WRITE,
                                                                              //  NIMBLE_PROPERTY::READ_ENC |
                                                                              //  NIMBLE_PROPERTY::WRITE_ENC,
-                                                                             4);
+                                                                             1);
     BLE_Command->setCallbacks(&chrCallbacks);
     BLE_Command->setValue(0x0000);
     NimBLECharacteristic *BLE_MED_CON = diagService->createCharacteristic((uint16_t)BLE_MED_CONNECTED_CHARACTERISTIC_UUID,
@@ -67,6 +93,7 @@ void ble_setup(const std::string &deviceName)
 
     BLE_Pressure->setCallbacks(&chrCallbacks);
     BLE_Pressure->setValue(0x0000);
+    */
     /*
       READ         =  BLE_GATT_CHR_F_READ,
       READ_ENC     =  BLE_GATT_CHR_F_READ_ENC,
@@ -80,24 +107,22 @@ void ble_setup(const std::string &deviceName)
       BROADCAST    =  BLE_GATT_CHR_F_BROADCAST,
       NOTIFY       =  BLE_GATT_CHR_F_NOTIFY,
       INDICATE     =  BLE_GATT_CHR_F_INDICATE*/
-
     controlService->start();
-    diagService->start();
-    // pNonSecureCharacteristic->setValue("Hello Non Secure BLE");
-    // pSecureCharacteristic->setValue("Hello Secure BLE");
+    // diagService->start();
+    //  pNonSecureCharacteristic->setValue("Hello Non Secure BLE");
+    //  pSecureCharacteristic->setValue("Hello Secure BLE");
     NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
     pAdvertising->addServiceUUID((uint16_t)BLE_LRA_CONTROL_SERVICE_UUID); // TODO
-    pAdvertising->addServiceUUID((uint16_t)BLE_LRA_DIAG_SERVICE_UUID);    // TODO
+    // pAdvertising->addServiceUUID((uint16_t)BLE_LRA_DIAG_SERVICE_UUID);    // TODO
     pAdvertising->start();
-
     // register GaitGuide callbacks
     auto &gaitGuide = GaitGuide::getInstance();
-    gaitGuide.onCurrentPressureChanged([](uint16_t pressure)
-                                       { ble_advertisePressure(pressure); });
-
+    // gaitGuide.onCurrentPressureChanged([](uint16_t pressure)
+    //                                    { ble_advertisePressure(pressure); });
     // esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000);
 }
-
+/// @brief NOT IMPLEMENTED
+/// @param pressure
 void ble_advertisePressure(uint16_t pressure)
 {
     NimBLEServer *pserver = NimBLEDevice::getServer();

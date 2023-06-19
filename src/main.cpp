@@ -131,7 +131,7 @@ uint16_t bound = 500;
 esp_timer_handle_t stimulation_timer;
 esp_timer_handle_t acceleration_timer;
 
-bool first = false;
+bool streaming = false;
 auto &gaitGuide = GaitGuide::getInstance();
 gaitGuide_stimMode_t stimMode = gaitGuide.stimMode();
 
@@ -148,7 +148,7 @@ uint16_t cnt = 0;
 static void acceleration_timer_callback(void *arg)
 {
     // get_acc_fifo();
-    if (first)
+    if (streaming)
     {
         digitalWrite(D0, HIGH);
     }
@@ -156,13 +156,15 @@ static void acceleration_timer_callback(void *arg)
     {
         digitalWrite(D0, LOW);
     }
-    first = !first;
+    streaming = !streaming;
     gaitGuide.newEvent(GAITGUIDE_EVENT_ACC);
 }
 static void stimulation_timer_callback(void *arg)
 {
-    first = false;
-    ESP_ERROR_CHECK(esp_timer_stop(acceleration_timer));
+    drv.setRealtimeValue(0x00);
+    drv.disable();
+    gaitGuide.goLateral = false;
+    gaitGuide.goMedial = false;
     log_d("\n--------------STOPPED-------------------\n\n");
 }
 
@@ -228,11 +230,18 @@ void loop()
     case GAITGUIDE_STATE_IDLE:
         if (usb_serial_jtag_read_bytes(usb_buffer_rx, USB_BUFFER_RX, 1 / portTICK_PERIOD_MS))
         {
-            iis3dwb_fifo_mode_set(&acc_lateral, IIS3DWB_STREAM_MODE);
-            iis3dwb_fifo_mode_set(&acc_medial, IIS3DWB_STREAM_MODE);
-            ESP_ERROR_CHECK(esp_timer_start_periodic(acceleration_timer, 10 * 1000)); // time in us
-            ESP_ERROR_CHECK(esp_timer_start_once(stimulation_timer, 1 * 100 * 1000)); // time in us
-            first = true;
+            if (!streaming)
+            {
+                iis3dwb_fifo_mode_set(&acc_lateral, IIS3DWB_STREAM_MODE);
+                iis3dwb_fifo_mode_set(&acc_medial, IIS3DWB_STREAM_MODE);
+                ESP_ERROR_CHECK(esp_timer_start_periodic(acceleration_timer, 10 * 1000)); // time in us
+                streaming = true;
+            }
+            else
+            {
+                ESP_ERROR_CHECK(esp_timer_stop(acceleration_timer));
+                streaming = false;
+            }
         }
         // log_d("Entering IDLE_State");
         // Handle Idle state
@@ -247,6 +256,7 @@ void loop()
         // log_d("Entering STIM_State");
         // Handle Stimulation state
         stimulation();
+        gaitGuide.newEvent(GAITGUIDE_EVENT_DONE);
         break;
 
     case GAITGUIDE_STATE_ACC:
@@ -342,9 +352,7 @@ void stimulation()
             drv.enableLateral();
         }
         drv.setRealtimeValue(gaitGuide.amp());
-        delay(gaitGuide.duration());
-        drv.setRealtimeValue(0x00);
-        drv.disable();
+        ESP_ERROR_CHECK(esp_timer_start_once(stimulation_timer, gaitGuide.duration() * 1000)); // time in us
         //  ESP_LOGD(TAG_DRV, "SetRealtimeValue = %d for %dms", gaitGuide.amp(), gaitGuide.duration());
         break;
 

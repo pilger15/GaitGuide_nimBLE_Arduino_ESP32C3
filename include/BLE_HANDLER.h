@@ -18,22 +18,30 @@ typedef enum
 {
     // DEVICE_INFO_SERVICE
     BLE_BATTERY_LEVEL_CHARACTERISTIC_UUID = 0x2A19,
-    BLE_TX_POWER_LEVEL_CHARACTERISTIC_UUID = 0x2A07,
-    BLE_FIRMWARE_REVISION_CHARACTERISTIC_UUID = 0x2A26,
+    // BLE_TX_POWER_LEVEL_CHARACTERISTIC_UUID = 0x2A07,
+    //  BLE_FIRMWARE_REVISION_CHARACTERISTIC_UUID = 0x2A26,
+
     // DEVICE_CONTROL_SERVICE
-    // BLE_LAT_CONNECTED_CHARACTERISTIC_UUID    = 0x1112,
-    // BLE_LAT_RUNNING_CHARACTERISTIC_UUID      = 0x1113,
-    BLE_CONTROL_CHARACTERISTIC_UUID = 0x1112,
-    BLE_STIM_MODE_CHARACTERISTIC_UUID = 0x1114,
-    // BLE_EFFECTS_CHARACTERISTIC_UUID          = 0x1113,
-    // BLE_DURATION_CHARACTERISTIC_UUID         = 0x1114,
-    BLE_STIM_COMMAND_CHARACTERISTIC_UUID = 0x1115,
-    // LRA_DIAG_SERVICE
-    BLE_MED_CONNECTED_CHARACTERISTIC_UUID = 0x2221,
-    BLE_MED_RUNNING_CHARACTERISTIC_UUID = 0x2222,
-    BLE_LAT_CONNECTED_CHARACTERISTIC_UUID = 0x2223,
-    BLE_LAT_RUNNING_CHARACTERISTIC_UUID = 0x2224,
-    BLE_PRESSURE_CHARACTERISTIC_UUID = 0x2225
+    BLE_AMPLITUDE_CHARACTERISTIC_UUID = 0x1112,
+    BLE_DURATION_MED_CHARACTERISTIC_UUID = 0x1113,
+    BLE_DURATION_LAT_CHARACTERISTIC_UUID = 0x1114,
+
+    BLE_PRESSURE_CHARACTERISTIC_UUID = 0x2225 // warning this is not implemented correctly
+    /*     BLE_LAT_CONNECTED_CHARACTERISTIC_UUID = 0x1112,
+     BLE_LAT_RUNNING_CHARACTERISTIC_UUID = 0x1113,
+     BLE_CONTROL_CHARACTERISTIC_UUID = 0x1112,
+     BLE_STIM_MODE_CHARACTERISTIC_UUID = 0x1114,
+     BLE_EFFECTS_CHARACTERISTIC_UUID = 0x1113,
+     BLE_DURATION_CHARACTERISTIC_UUID = 0x1114,
+     BLE_STIM_COMMAND_CHARACTERISTIC_UUID = 0x1115,
+
+     // LRA_DIAG_SERVICE
+     BLE_MED_CONNECTED_CHARACTERISTIC_UUID = 0x2221,
+     BLE_MED_RUNNING_CHARACTERISTIC_UUID = 0x2222,
+     BLE_LAT_CONNECTED_CHARACTERISTIC_UUID = 0x2223,
+     BLE_LAT_RUNNING_CHARACTERISTIC_UUID = 0x2224,
+
+     */
 } CharacteristicUUID_t;
 
 // not used but may be relevant for future use cases
@@ -82,28 +90,24 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
     {
         const uint8_t *data;
 
-        ESP_LOGI(TAG_BLE, "%s: onWrite(), value: %s", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue().c_str());
+        ESP_LOGI(TAG_BLE, "[%s] onWrite(), value: %s", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue().c_str());
         switch (pCharacteristic->getUUID().getNative()->u16.value)
         {
-        case BLE_CONTROL_CHARACTERISTIC_UUID:
-            data = pCharacteristic->getValue().data();
-            if ((gaitGuide_event_t)data[0])
+        case BLE_AMPLITUDE_CHARACTERISTIC_UUID:
+            ESP_LOGD(TAG_BLE, "[%s] Amplitude set to %d", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue()[0]);
+            if (gaitGuide.goLateral || gaitGuide.goMedial)
             {
-                ESP_LOGD(TAG_BLE, "Control-Event: #%s", pCharacteristic->getValue().c_str());
-                gaitGuide.newEvent((gaitGuide_event_t)data[0]);
+                ESP_LOGD(TAG_DRV, "COMMAND IGNORED: Device still running");
             }
             else
             {
-                ESP_LOGE(TAG_BLE, "Control-Event not allowed: #%s", pCharacteristic->getValue().c_str());
+                gaitGuide.setAmplitude(pCharacteristic->getValue().data());
             }
+
             break;
-        case BLE_STIM_MODE_CHARACTERISTIC_UUID:
-            ESP_LOGD(TAG_BLE, "Changing Usermode: %s", pCharacteristic->getValue().c_str());
-            data = pCharacteristic->getValue().data();
-            gaitGuide.stimMode((gaitGuide_stimMode_t)data[0]);
-            break;
-        case BLE_STIM_COMMAND_CHARACTERISTIC_UUID:
-            ESP_LOGD(TAG_BLE, "%s: LAT_COMMAND", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue().c_str());
+
+        case BLE_DURATION_MED_CHARACTERISTIC_UUID:
+            ESP_LOGD(TAG_BLE, "[%s] Started MED: %dms", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue()[0]);
 
             if (gaitGuide.goLateral || gaitGuide.goMedial)
             {
@@ -111,76 +115,119 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
             }
             else
             {
-                gaitGuide.setCommand(pCharacteristic->getValue().data());
+                gaitGuide.setDuration(pCharacteristic->getValue().data()[0], drv_medial);
             }
 
             break;
-        case BLE_PRESSURE_CHARACTERISTIC_UUID:
-            gaitGuide.setTargetPressure();
-            pCharacteristic->setValue(gaitGuide.getTargetPressure());
-            break;
+        case BLE_DURATION_LAT_CHARACTERISTIC_UUID:
+            ESP_LOGD(TAG_BLE, "[%s] Started LAT: %dms", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue()[0]);
 
-            /*
-            case BLE_BATTERY_LEVEL_CHARACTERISTIC_UUID:
-                ESP_LOGI(TAG_BLE, "%s: BATTERY_LEVEL NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-                break;
-            case BLE_TX_POWER_LEVEL_CHARACTERISTIC_UUID:
-                ESP_LOGI(TAG_BLE, "%s: TX_POWER_LEVEL NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-                break;
-            case BLE_FIRMWARE_REVISION_CHARACTERISTIC_UUID:
-                ESP_LOGI(TAG_BLE, "%s: FIRMWARE_REVISION NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-                break;
-            case BLE_LAT_CONNECTED_CHARACTERISTIC_UUID:
-                ESP_LOGI(TAG_BLE, "%s: LAT_CONNECTED NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-                break;
-            case BLE_LAT_RUNNING_CHARACTERISTIC_UUID:
-                ESP_LOGI(TAG_BLE, "%s: LAT_RUNNING_CHARACTERISTIC NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-                break;
-            case BLE_STIM_MODE_CHARACTERISTIC_UUID:
-                ESP_LOGI(TAG_BLE, "%s: LAT_MODE NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-                break;
-            case BLE_EFFECTS_CHARACTERISTIC_UUID:
-                ESP_LOGI(TAG_BLE, "%s: LAT_EFFECT NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-                break;
-            case BLE_DURATION_CHARACTERISTIC_UUID:
-                ESP_LOGI(TAG_BLE, "%s: LAT_DURATION NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-                break;
-            */
-
-            /*
-        case BLE_MED_CONNECTED_CHARACTERISTIC_UUID:
-            ESP_LOGI(TAG_BLE, "%s: MED_CONNECTED NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+            if (gaitGuide.goLateral || gaitGuide.goMedial)
+            {
+                ESP_LOGD(TAG_DRV, "COMMAND IGNORED: Device still running");
+            }
+            else
+            {
+                gaitGuide.setDuration(pCharacteristic->getValue().data()[0], drv_lateral);
+            }
 
             break;
-        case BLE_MED_RUNNING_CHARACTERISTIC_UUID:
-            ESP_LOGI(TAG_BLE, "%s: MED_RUNNING_CHARACTERISTIC NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-            break;
-        case BLE_MED_MODE_CHARACTERISTIC_UUID:
-            ESP_LOGI(TAG_BLE, "%s: MED_MODE NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-            break;
-        case BLE_MED_EFFECT_CHARACTERISTIC_UUID:
-            ESP_LOGI(TAG_BLE, "%s: MED_EFFECT NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-            break;
-        case BLE_MED_DURATION_CHARACTERISTIC_UUID:
-            ESP_LOGI(TAG_BLE, "%s: MED_DURATION NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
-
-            break;*/
-
         default:
 
             ESP_LOGD(TAG_BLE, "Undefined BLE-Characteristic");
             break;
         }
+        /*
+    case BLE_CONTROL_CHARACTERISTIC_UUID:
+        data = pCharacteristic->getValue().data();
+        if ((gaitGuide_event_t)data[0])
+        {
+            ESP_LOGD(TAG_BLE, "Control-Event: #%s", pCharacteristic->getValue().c_str());
+            gaitGuide.newEvent((gaitGuide_event_t)data[0]);
+        }
+        else
+        {
+            ESP_LOGE(TAG_BLE, "Control-Event not allowed: #%s", pCharacteristic->getValue().c_str());
+        }
+        break;
+    case BLE_STIM_MODE_CHARACTERISTIC_UUID:
+        ESP_LOGD(TAG_BLE, "Changing Usermode: %s", pCharacteristic->getValue().c_str());
+        data = pCharacteristic->getValue().data();
+        gaitGuide.stimMode((gaitGuide_stimMode_t)data[0]);
+        break;
+    case BLE_STIM_COMMAND_CHARACTERISTIC_UUID:
+        ESP_LOGD(TAG_BLE, "%s: LAT_COMMAND", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue().c_str());
+
+        if (gaitGuide.goLateral || gaitGuide.goMedial)
+        {
+            ESP_LOGD(TAG_DRV, "COMMAND IGNORED: Device still running");
+        }
+        else
+        {
+            gaitGuide.setCommand(pCharacteristic->getValue().data());
+        }
+
+        break;
+    case BLE_PRESSURE_CHARACTERISTIC_UUID:
+        gaitGuide.setTargetPressure();
+        pCharacteristic->setValue(gaitGuide.getTargetPressure());
+        break;
+
+
+        case BLE_BATTERY_LEVEL_CHARACTERISTIC_UUID:
+            ESP_LOGI(TAG_BLE, "%s: BATTERY_LEVEL NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+            break;
+        case BLE_TX_POWER_LEVEL_CHARACTERISTIC_UUID:
+            ESP_LOGI(TAG_BLE, "%s: TX_POWER_LEVEL NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+            break;
+        case BLE_FIRMWARE_REVISION_CHARACTERISTIC_UUID:
+            ESP_LOGI(TAG_BLE, "%s: FIRMWARE_REVISION NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+            break;
+        case BLE_LAT_CONNECTED_CHARACTERISTIC_UUID:
+            ESP_LOGI(TAG_BLE, "%s: LAT_CONNECTED NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+            break;
+        case BLE_LAT_RUNNING_CHARACTERISTIC_UUID:
+            ESP_LOGI(TAG_BLE, "%s: LAT_RUNNING_CHARACTERISTIC NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+            break;
+        case BLE_STIM_MODE_CHARACTERISTIC_UUID:
+            ESP_LOGI(TAG_BLE, "%s: LAT_MODE NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+            break;
+        case BLE_EFFECTS_CHARACTERISTIC_UUID:
+            ESP_LOGI(TAG_BLE, "%s: LAT_EFFECT NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+            break;
+        case BLE_DURATION_CHARACTERISTIC_UUID:
+            ESP_LOGI(TAG_BLE, "%s: LAT_DURATION NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+            break;
+        */
+
+        /*
+    case BLE_MED_CONNECTED_CHARACTERISTIC_UUID:
+        ESP_LOGI(TAG_BLE, "%s: MED_CONNECTED NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+        break;
+    case BLE_MED_RUNNING_CHARACTERISTIC_UUID:
+        ESP_LOGI(TAG_BLE, "%s: MED_RUNNING_CHARACTERISTIC NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+        break;
+    case BLE_MED_MODE_CHARACTERISTIC_UUID:
+        ESP_LOGI(TAG_BLE, "%s: MED_MODE NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+        break;
+    case BLE_MED_EFFECT_CHARACTERISTIC_UUID:
+        ESP_LOGI(TAG_BLE, "%s: MED_EFFECT NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+        break;
+    case BLE_MED_DURATION_CHARACTERISTIC_UUID:
+        ESP_LOGI(TAG_BLE, "%s: MED_DURATION NOT IMPLEMENTED!", pCharacteristic->getUUID().toString().c_str());
+
+        break;*/
     };
     /** Called before notification or indication is sent,
      *  the value can be changed here before sending if desired.
