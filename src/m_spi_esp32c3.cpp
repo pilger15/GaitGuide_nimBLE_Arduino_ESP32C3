@@ -11,6 +11,12 @@ spi_transaction_t spi_read_register = {
     .length = 8,
     .rxlength = 8};
 
+spi_transaction_t spi_read_16 = {
+    .flags = SPI_TRANS_USE_RXDATA,
+    .cmd = SPI_READ_CMD,
+    .length = 16,
+    .rxlength = 16};
+
 // uint8_t rx_buffer[512 * 7];
 spi_transaction_t spi_read_batch = {
     //.flags = SPI_DEVICE_HALFDUPLEX,
@@ -31,6 +37,14 @@ uint8_t m_spi_read_register(spi_device_handle_t handle, uint8_t reg)
     return spi_read_register.rx_data[0];
 }
 
+uint16_t m_spi_read_16bit(spi_device_handle_t handle, uint8_t reg)
+{
+    spi_read_16.addr = reg;
+    spi_device_polling_transmit(handle, &spi_read_16);
+    uint16_t ret = ((uint16_t)spi_read_register.rx_data[1] << 8) | spi_read_register.rx_data[0];
+    return ret;
+}
+
 // FUNCTIONALITY:
 //   Serial read multiple SPI device bytes starting from an 8-bit register
 //   Note: SPI device must support burst/serial register reads
@@ -46,5 +60,6 @@ void m_spi_read_registers(spi_device_handle_t handle, uint8_t start_reg, uint16_
     spi_read_batch.length = num_bytes * 8;
     spi_read_batch.rxlength = num_bytes * 8;
     spi_read_batch.rx_buffer = dest;
+    // spi_device_polling_transmit(handle, &spi_read_batch);
     spi_device_transmit(handle, &spi_read_batch);
 }

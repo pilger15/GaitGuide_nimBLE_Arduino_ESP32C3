@@ -306,8 +306,18 @@ typedef union
         uint8_t fifo_full_ia : 1;
         uint8_t fifo_ovr_ia : 1;
         uint8_t fifo_wtm_ia : 1;
-    } fifo_status2;
+    } status2;
 } iis3dwb_fifo_status2_t;
+
+typedef union
+{
+    uint16_t data;
+    struct
+    {
+        iis3dwb_fifo_status1_t status1;
+        iis3dwb_fifo_status2_t status2;
+    } fifo_status;
+} iis3dwb_fifo_status_t;
 
 #define IIS3DWB_TIMESTAMP0 0x40U
 #define IIS3DWB_TIMESTAMP1 0x41U
@@ -424,7 +434,7 @@ typedef union
 #define IIS3DWB_FIFO_DATA_OUT_Z_L 0x7DU
 #define IIS3DWB_FIFO_DATA_OUT_Z_H 0x7EU
 
-typedef union
+typedef union __attribute__((packed))
 {
     uint16_t data[3];
     struct
@@ -434,6 +444,16 @@ typedef union
         int16_t OUT_A_Z;
     } OUT_A;
 } iis3dwb_OUT_A;
+
+typedef union __attribute__((packed))
+{
+    uint8_t data[7];
+    struct
+    {
+        iis3dwb_fifo_data_out_tag_t fifo_data_out_tag;
+        iis3dwb_OUT_A OUT_A;
+    } OUT_WORD;
+} iis3dwb_OUT_WORD_t;
 
 typedef enum
 {
@@ -598,7 +618,8 @@ void iis3dwb_fifo_batch_get(iis3dwb_device_t *device, uint16_t num_words);
 void iis3dwb_fifo_watermark_set(iis3dwb_device_t *device, uint16_t val);
 uint16_t iis3dwb_fifo_watermark_get(iis3dwb_device_t *device);
 bool iis3dwb_fifo_wtm_flag_get(iis3dwb_device_t *device);
-iis3dwb_fifo_status2_t iis3dwb_fifo_status_get(iis3dwb_device_t *device);
+iis3dwb_fifo_status2_t iis3dwb_fifo_status2_get(iis3dwb_device_t *device);
+iis3dwb_fifo_status_t iis3dwb_fifo_status_get(iis3dwb_device_t *device);
 
 void iis3dwb_fifo_xl_batch_set(iis3dwb_device_t *device, uint8_t val);
 uint8_t iis3dwb_fifo_xl_batch_get(iis3dwb_device_t *device);

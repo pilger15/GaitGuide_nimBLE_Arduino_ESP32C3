@@ -33,6 +33,17 @@ void m_spi_write_register(spi_device_handle_t handle, uint8_t reg, uint8_t val);
 uint8_t m_spi_read_register(spi_device_handle_t handle, uint8_t reg);
 
 // FUNCTIONALITY:
+//   Read an 16-bit value from a specific SPI device's 16-bit register
+//
+// ARGUMENTS:
+//   cs_pin: an enumerated M2 general-purpose I/O (GPIO) pin
+//   reg: 8-bit SPI device register
+//
+// RETURNS:
+//   8-bit value from SPI device register
+uint16_t m_spi_read_16bit(spi_device_handle_t handle, uint8_t reg);
+
+// FUNCTIONALITY:
 //   Serial read multiple SPI device bytes starting from an 8-bit register
 //   Note: SPI device must support burst/serial register reads
 //

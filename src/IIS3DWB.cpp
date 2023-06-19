@@ -459,7 +459,7 @@ bool iis3dwb_fifo_wtm_flag_get(iis3dwb_device_t *device)
     iis3dwb_fifo_status2_t fifo_status2;
 
     m_spi_read_registers(device->spi_handle, IIS3DWB_FIFO_STATUS2, 1, &fifo_status2.data); // read register
-    return fifo_status2.fifo_status2.fifo_wtm_ia;
+    return fifo_status2.status2.fifo_wtm_ia;
 }
 
 /**
@@ -469,13 +469,27 @@ bool iis3dwb_fifo_wtm_flag_get(iis3dwb_device_t *device)
  * @retval			Registers FIFO_STATUS2
  *
  */
-iis3dwb_fifo_status2_t iis3dwb_fifo_status_get(iis3dwb_device_t *device)
+iis3dwb_fifo_status2_t iis3dwb_fifo_status2_get(iis3dwb_device_t *device)
 {
 
     iis3dwb_fifo_status2_t fifo_status2;
 
     m_spi_read_registers(device->spi_handle, IIS3DWB_FIFO_STATUS2, 1, &fifo_status2.data); // read register
     return fifo_status2;
+}
+/**
+ * @brief  Extendet FIFO status.[get]
+ *
+ * @param  device->spi_handle	spi device->spi_handle of device
+ * @retval			Registers FIFO_STATUS2 and FIFO_STATUS1
+ *
+ */
+iis3dwb_fifo_status_t iis3dwb_fifo_status_get(iis3dwb_device_t *device)
+{
+
+    iis3dwb_fifo_status_t fifo_status;
+    fifo_status.data = m_spi_read_16bit(device->spi_handle, IIS3DWB_FIFO_STATUS1);
+    return fifo_status;
 }
 
 /**
@@ -585,22 +599,10 @@ int16_t iis3dwb_fifo_data_level_get(iis3dwb_device_t *device)
 {
     iis3dwb_fifo_status1_t fifo_status1;
     iis3dwb_fifo_status2_t fifo_status2;
-    int16_t ret;
     fifo_status1.data = m_spi_read_register(device->spi_handle, IIS3DWB_FIFO_STATUS1); // read register
     fifo_status2.data = m_spi_read_register(device->spi_handle, IIS3DWB_FIFO_STATUS2); // read register
 
-    ret = ((uint16_t)fifo_status2.fifo_status2.diff_fifo << 8) | fifo_status1.fifo_status1.diff_fifo;
-
-    if (false)
-    {
-        log_d("\nD%d \n WTM %d \n OVR %d \n FULL %d \n DIFF %x%x \n\n",
-              device->IDx,
-              fifo_status2.fifo_status2.fifo_wtm_ia,
-              fifo_status2.fifo_status2.fifo_ovr_ia,
-              fifo_status2.fifo_status2.fifo_full_ia,
-              fifo_status2.fifo_status2.diff_fifo, fifo_status1.fifo_status1.diff_fifo);
-    }
-    return ret;
+    return ((uint16_t)fifo_status2.status2.diff_fifo << 8) | fifo_status1.fifo_status1.diff_fifo;
 }
 
 /**
