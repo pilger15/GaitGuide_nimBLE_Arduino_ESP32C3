@@ -105,8 +105,13 @@ public:
     bool timescale();
     void timescale(bool is_timescale_5ms);
 
-    void setAmplitude(const uint8_t *data);
+    void setAmplitude(const uint8_t data);
     void setDuration(const uint8_t data, bool driver_side);
+    /**
+     * @brief default stimulation using Amplitude Real Time Mode this is a "make work" solution
+     *
+     */
+    void stimulateDefault(bool driver_side);
 
     uint8_t duration(const uint8_t pos = 0)
     {

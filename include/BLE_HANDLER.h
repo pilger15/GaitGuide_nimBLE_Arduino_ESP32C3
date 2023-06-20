@@ -101,7 +101,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
             }
             else
             {
-                gaitGuide.setAmplitude(pCharacteristic->getValue().data());
+                gaitGuide.setAmplitude(pCharacteristic->getValue().data()[0]);
             }
 
             break;

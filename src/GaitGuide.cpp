@@ -299,9 +299,9 @@ void GaitGuide::timescale(bool is_timescale_5ms)
     m_is_timescale_5ms = is_timescale_5ms;
 }
 
-void GaitGuide::setAmplitude(const uint8_t *data)
+void GaitGuide::setAmplitude(const uint8_t data)
 {
-    m_amplitude[0] = data[0];
+    m_amplitude[0] = data;
     /*
     uint8_t driver_side;
     uint8_t packet_seq = data[2] & 0x7F; // #Todo include packet_seq to ensure no data has been missing
@@ -342,6 +342,10 @@ void GaitGuide::setDuration(const uint8_t data, bool driver_side)
         goMedial = false;
     }
     newEvent(GAITGUIDE_EVENT_STIM);
+}
+
+void stimulateDefault(bool driver_side)
+{
 }
 //------------ private functions ---------------
 

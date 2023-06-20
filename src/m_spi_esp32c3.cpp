@@ -12,7 +12,7 @@ spi_transaction_t spi_read_register = {
     .rxlength = 8};
 
 spi_transaction_t spi_read_16 = {
-    .flags = SPI_TRANS_USE_RXDATA,
+    .flags = SPI_TRANS_USE_RXDATA | SPI_DEVICE_HALFDUPLEX,
     .cmd = SPI_READ_CMD,
     .length = 16,
     .rxlength = 16};
@@ -41,7 +41,7 @@ uint16_t m_spi_read_16bit(spi_device_handle_t handle, uint8_t reg)
 {
     spi_read_16.addr = reg;
     spi_device_polling_transmit(handle, &spi_read_16);
-    uint16_t ret = ((uint16_t)spi_read_register.rx_data[1] << 8) | spi_read_register.rx_data[0];
+    uint16_t ret = ((uint16_t)spi_read_16.rx_data[1] << 8) | spi_read_16.rx_data[0];
     return ret;
 }
 

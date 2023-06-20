@@ -32,7 +32,7 @@ void ble_setup(const std::string &deviceName)
                                                                                //  NIMBLE_PROPERTY::WRITE_ENC,
                                                                                1);
     BLE_Amplitude->setCallbacks(&chrCallbacks);
-    BLE_Amplitude->setValue(0x00);
+    BLE_Amplitude->setValue((uint8_t)0x00);
     NimBLECharacteristic *BLE_Duration_MED = controlService->createCharacteristic((uint16_t)BLE_DURATION_MED_CHARACTERISTIC_UUID,
                                                                                   NIMBLE_PROPERTY::READ |
                                                                                       NIMBLE_PROPERTY::WRITE,
@@ -40,7 +40,7 @@ void ble_setup(const std::string &deviceName)
                                                                                   //  NIMBLE_PROPERTY::WRITE_ENC,
                                                                                   1);
     BLE_Duration_MED->setCallbacks(&chrCallbacks);
-    BLE_Duration_MED->setValue(0x00);
+    BLE_Duration_MED->setValue((uint8_t)0x00);
 
     NimBLECharacteristic *BLE_Duration_LAT = controlService->createCharacteristic((uint16_t)BLE_DURATION_LAT_CHARACTERISTIC_UUID,
                                                                                   NIMBLE_PROPERTY::READ |
@@ -49,7 +49,7 @@ void ble_setup(const std::string &deviceName)
                                                                                   //  NIMBLE_PROPERTY::WRITE_ENC,
                                                                                   1);
     BLE_Duration_LAT->setCallbacks(&chrCallbacks);
-    BLE_Duration_LAT->setValue(0x00);
+    BLE_Duration_LAT->setValue((uint8_t)0x00);
 
     /*NimBLECharacteristic *BLE_Mode = controlService->createCharacteristic((uint16_t)BLE_STIM_MODE_CHARACTERISTIC_UUID,
                                                                           NIMBLE_PROPERTY::READ |
