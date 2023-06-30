@@ -67,19 +67,19 @@
 #define ACC_WATERMARK (ACC_BUFFER_WORDS / 2)
 #define ACC_BUFFER_BYTES (ACC_BUFFER_WORDS * ACC_WORD)
 
-#define ACC_SCALE ACCEL_2G
+#define ACC_SCALE ACCEL_16G
 #define ACC_AXIS Z_AXIS_ONLY
 
 uint8_t *acc_medial_buffer; //[ACC_BUFFER_BYTES + ACC_BUFFER_OVERHEAD];
 iis3dwb_device_t acc_medial = {
-    .IDx = 0,
+    .IDx = (uint8_t)'0',
     .full_scale = ACC_SCALE,
     .xl_axis = ACC_AXIS,
     .data_buffer = acc_medial_buffer};
 
 uint8_t *acc_lateral_buffer; //[ACC_BUFFER_BYTES + ACC_BUFFER_OVERHEAD];
 iis3dwb_device_t acc_lateral{
-    .IDx = 1,
+    .IDx = (uint8_t)'1',
     .full_scale = ACC_SCALE,
     .xl_axis = ACC_AXIS,
     .data_buffer = acc_lateral_buffer};
@@ -96,7 +96,7 @@ bool is_timescale_1ms = false;
 
 unsigned long time_us = 0;
 
-static const std::string deviceName = "GaitGuide_DEV";
+static const std::string deviceName = "GaitGuide";
 
 uint8_t effect_list_index = 0;
 uint8_t effect_list[] = {
@@ -146,14 +146,14 @@ static iis3dwb_OUT_WORD_t WORDS[ACC_BUFFER_WORDS];
 typedef union
 {
     uint8_t uint8[ACC_BUFFER_WORDS * sizeof(uint16_t)];
-    uint16_t uint16[ACC_BUFFER_WORDS];
+    int16_t int16[ACC_BUFFER_WORDS];
 } sendUSB_t;
 sendUSB_t sendUSB;
 
 void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
 {
     // # TODO consolidate weird buffer arrangement
-    char terminator = '\n';
+    char terminator[] = {'\n'};
     char header[] = {
         'D',
         'A',
@@ -180,7 +180,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
 
     iis3dwb_fifo_mode_set(&acc_lateral, IIS3DWB_STREAM_MODE);
     iis3dwb_fifo_mode_set(&acc_medial, IIS3DWB_STREAM_MODE);
-
+    vTaskDelay(pdMS_TO_TICKS(6));
     // for future reference - queue tansacion and read out last queue  to allow simulaion request in the middle
     while (streaming)
     {
@@ -194,7 +194,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             if (status0.fifo_status.status2.status2.fifo_ovr_ia)
             {
                 log_e("\n\e[1;31mFIFO MEDIAL OVERRUN\e[0;38m\n");
-                digitalWrite(D0, HIGH);
+                digitalWrite(D1, HIGH);
             }
             //(uint16_t)(status0.fifo_status.status2.status2.diff_fifo << 8) | status0.fifo_status.status1.fifo_status1.diff_fifo;
             // iis3dwb_fifo_batch_get(&acc_medial, num_words0);
@@ -213,7 +213,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             if (status1.fifo_status.status2.status2.fifo_ovr_ia)
             {
                 log_e("\n\e[1;31mFIFO LATERAL OVERRUN\e[0;38m\n");
-                digitalWrite(D0, HIGH);
+                digitalWrite(D1, HIGH);
             }
         }
         else
@@ -233,20 +233,22 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             spi_read_fifo2.rxlength = num_words1 * 8 * ACC_WORD;
             ESP_ERROR_CHECK(spi_device_queue_trans(acc_lateral.spi_handle, &spi_read_fifo2, pdMS_TO_TICKS(15)));
         }
-        vTaskDelay(pdMS_TO_TICKS(6));
+        vTaskDelay(pdMS_TO_TICKS(10));
 
         if (num_words0)
         {
 
             spi_device_get_trans_result(acc_medial.spi_handle, &trans_result, pdMS_TO_TICKS(2));
             //  memcpy(&sendUSB, acc_medial_buffer, ACC_BUFFER_OVERHEAD);log_e("before");
-            memcpy(WORDS, acc_medial_buffer, num_words0);
+            memcpy(WORDS, acc_medial_buffer, num_words0 * ACC_WORD);
             for (int i = 0; i < num_words0; i++)
             {
-                sendUSB.uint16[i] = WORDS[i].OUT_WORD.OUT_A.OUT_A.OUT_A_Z;
+                sendUSB.int16[i] = WORDS[i].OUT_WORD.OUT_A.OUT_A.OUT_A_Z;
             }
+
             usb_serial_jtag_write_bytes(&header, 3, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&acc_medial.IDx, 1, pdMS_TO_TICKS(1));
+            // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&num_words0, 2, pdMS_TO_TICKS(1));
 
             send0 = usb_serial_jtag_write_bytes(&sendUSB, num_words0 * sizeof(uint16_t), pdMS_TO_TICKS(1));
@@ -256,18 +258,19 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
         {
 
             spi_device_get_trans_result(acc_lateral.spi_handle, &trans_result, pdMS_TO_TICKS(2));
-            memcpy(WORDS, acc_lateral_buffer, num_words1);
+            memcpy(WORDS, acc_lateral_buffer, num_words1 * ACC_WORD);
             for (int i = 0; i < num_words1; i++)
             {
-                sendUSB.uint16[i] = WORDS[i].OUT_WORD.OUT_A.OUT_A.OUT_A_Z;
+                sendUSB.int16[i] = WORDS[i].OUT_WORD.OUT_A.OUT_A.OUT_A_Z;
             }
             usb_serial_jtag_write_bytes(&header, 3, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&acc_lateral.IDx, 1, pdMS_TO_TICKS(1));
+            // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&num_words1, 2, pdMS_TO_TICKS(1));
-
             send1 = usb_serial_jtag_write_bytes(&sendUSB, num_words1 * sizeof(uint16_t), pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
         }
+
         taskYIELD();
     }
     iis3dwb_fifo_mode_set(&acc_lateral, IIS3DWB_BYPASS_MODE);
@@ -333,10 +336,13 @@ void setup()
     usb_init();
 
     ble_setup(deviceName);
+    led_setup();
+
     accelerometer_setup();
     timer_setup();
 
-    pinMode(D0, OUTPUT);
+    pinMode(D1, OUTPUT);
+    led_breath();
     xTaskCreate(usbTask, "USB_TASK", 1024, NULL, 1, NULL);
     // led_setup();
     // configure_adc(ADC_WIDTH_BIT_12, ADC_ATTEN_DB_11);
@@ -578,10 +584,10 @@ void accelerometer_config(iis3dwb_device_t *device, gpio_num_t cs_pin)
     iis3dwb_fifo_watermark_set(device, ACC_WATERMARK); // Total Bytes =  Number of words * FIFO_WORD (7 or 6) + 1 to account for occasional temperature datum
 
     /* Set default acceleration scale */
-    iis3dwb_xl_full_scale_set(device, ACCEL_2G);
+    iis3dwb_xl_full_scale_set(device, device->full_scale);
 
     /*Significantly improves noise density if only one axis is chosen*/
-    iis3dwb_axis_sel_set(device, Z_AXIS_ONLY);
+    iis3dwb_axis_sel_set(device, device->xl_axis);
 
     /*Register address automatically incremented*/
     iis3dwb_auto_increment_set(device, 1);

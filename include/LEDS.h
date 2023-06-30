@@ -10,15 +10,15 @@
 #define LEDC_LS_TIMER LEDC_TIMER_1
 #define LEDC_LS_MODE LEDC_LOW_SPEED_MODE
 
-#define LEDC_CH_NUM (2) // Number of LEDS using the fade service
+#define LEDC_CH_NUM (1) // Number of LEDS using the fade service
 
-#define LEDC_RED_PIN (10)
-#define LEDC_RED_CHANNEL LEDC_CHANNEL_0
+// #define LEDC_RED_PIN(10)
+//  #define LEDC_RED_CHANNEL LEDC_CHANNEL_0
 
-#define LEDC_BLUE_PIN (9)
-#define LEDC_BLUE_CHANNEL LEDC_CHANNEL_1
+#define LEDC_BLUE_PIN D0
+#define LEDC_BLUE_CHANNEL LEDC_CHANNEL_0
 
-#define LEDC_BREATH_FADE_TIME (500)
+#define LEDC_BREATH_FADE_TIME (300)
 
 typedef enum
 {
@@ -30,7 +30,7 @@ typedef enum
 {
     LED_STATE_OFF,
     LED_STATE_BLE_LOOKING_FOR_CONNECTION,
-    LED_STATE_PRESSURE_SENSING
+    LED_STATE_CONNECTED
 } LEDstate_t;
 /*
  * This callback function will be called when fade operation has ended
@@ -41,6 +41,7 @@ static bool
 cb_ledc_fade_end_event(const ledc_cb_param_t *param, void *user_arg);
 
 void led_setup();
+void led_breath();
 void led_pressureMode();
 void led_fade_exponentially(uint16_t led_dutycycle, LEDselect_t led);
 void led_fade_to(uint8_t dutycycle, LEDselect_t led);

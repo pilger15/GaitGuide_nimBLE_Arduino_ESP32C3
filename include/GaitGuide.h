@@ -164,7 +164,7 @@ private:
     uint16_t nvs_read_targetPressure(const char *subject_key);
     uint16_t nvs_read_targetPressure_backup(uint8_t subject_id);
 
-    uint8_t m_amplitude[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t m_amplitude[8] = {0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t m_duration[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t m_effects[8] = {14, 14, 14, 14, 14, 14, 14, 14}; // effect strong buzz
     uint8_t m_error = 0;

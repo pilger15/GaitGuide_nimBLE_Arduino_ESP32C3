@@ -60,12 +60,14 @@ class ServerCallbacks : public NimBLEServerCallbacks
 {
     void onConnect(NimBLEServer *pServer, ble_gap_conn_desc *desc)
     {
-
+        led_pressureMode();
+        led_fade_to(127, LED_BLUE);
         ESP_LOGI(TAG_BLE, "Client connected: %s\n", NimBLEAddress(desc->peer_ota_addr).toString().c_str());
     };
 
     void onDisconnect(NimBLEServer *pServer)
     {
+        led_breath();
         ESP_LOGI(TAG_BLE, "Client disconnected\n");
         // if still advertising we won't sleep yet.
         if (!pServer->getAdvertising()->isAdvertising())

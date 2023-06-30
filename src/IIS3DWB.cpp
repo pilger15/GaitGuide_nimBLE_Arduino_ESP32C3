@@ -129,9 +129,9 @@ void iis3dwb_xl_full_scale_set(iis3dwb_device_t *device, a_range_t accel_range)
 {
     iis3dwb_ctrl1_xl_t ctrl1_xl;
 
-    m_spi_read_registers(device->spi_handle, IIS3DWB_CTRL1_XL, 1, &ctrl1_xl.data); // read register
-    ctrl1_xl.ctrl1_xl.fs_xl = (uint8_t)accel_range;                                // set accel-range
-    m_spi_write_register(device->spi_handle, IIS3DWB_CTRL1_XL, ctrl1_xl.data);     // send modified register
+    ctrl1_xl.data = m_spi_read_register(device->spi_handle, IIS3DWB_CTRL1_XL); // read register
+    ctrl1_xl.ctrl1_xl.fs_xl = (uint8_t)accel_range;                            // set accel-range
+    m_spi_write_register(device->spi_handle, IIS3DWB_CTRL1_XL, ctrl1_xl.data); // send modified register
 }
 /**
  * @brief	Device acceleration range.[get]

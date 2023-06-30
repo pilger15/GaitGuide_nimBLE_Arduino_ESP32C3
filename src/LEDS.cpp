@@ -2,7 +2,7 @@
 
 static uint8_t LED_BREATH_CYLE[] = {0, 34, 82, 154, 255, 255, 154, 82, 34, 0};
 uint8_t LEDC_CYLE_index = 0;
-LEDstate_t led_state = LED_STATE_PRESSURE_SENSING;
+LEDstate_t led_state = LED_STATE_CONNECTED;
 
 ledc_channel_config_t ledc_channel[2];
 static uint8_t LEDC_CYLE_size = sizeof(LED_BREATH_CYLE) / sizeof(LED_BREATH_CYLE[0]);
@@ -29,7 +29,7 @@ static IRAM_ATTR bool cb_ledc_fade_end_event(const ledc_cb_param_t *param, void 
                             ledc_channel[LED_BLUE].channel, LEDC_FADE_NO_WAIT);
 
             break;
-        case LED_STATE_PRESSURE_SENSING:
+        case LED_STATE_CONNECTED:
             break;
         default:
             break;
@@ -48,7 +48,7 @@ static IRAM_ATTR bool cb_ledc_fade_end_event(const ledc_cb_param_t *param, void 
     */
 void led_pressureMode()
 {
-    led_state = LED_STATE_PRESSURE_SENSING;
+    led_state = LED_STATE_CONNECTED;
 }
 
 void led_fade_exponentially(uint16_t led_dutycycle, LEDselect_t led)
@@ -102,14 +102,14 @@ void led_setup()
     memset(&ledc_channel, 0, sizeof(ledc_channel_config_t));
 
     // Set the channel number
-    ledc_channel[0].channel = LEDC_RED_CHANNEL;
+    ledc_channel[0].channel = LEDC_BLUE_CHANNEL;
     // Set the GPIO number where the channel is connected
-    ledc_channel[0].gpio_num = LEDC_RED_PIN;
+    ledc_channel[0].gpio_num = LEDC_BLUE_PIN;
 
     // Set the channel number
-    ledc_channel[1].channel = LEDC_BLUE_CHANNEL;
+    // ledc_channel[1].channel = LEDC_BLUE_CHANNEL;
     // Set the GPIO number where the channel is connected
-    ledc_channel[1].gpio_num = LEDC_BLUE_PIN;
+    // ledc_channel[1].gpio_num = LEDC_BLUE_PIN;
 
     for (ch = 0; ch < LEDC_CH_NUM; ch++)
     {
