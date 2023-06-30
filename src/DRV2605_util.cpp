@@ -2,9 +2,6 @@
 
 DRV2605_UTIL::DRV2605_UTIL()
 {
-    _auto_config.RATED_VOLTAGE = DRV_L_RV_LRA_CL_300US_2_0V_RMS; // Rated Voltage [7:0] 2 Vrms
-    _auto_config.OD_CLAMP = DRV_L_LRA_OD_CLAMP_2_05V;            // Overdrive Clamp Voltage: ODClamp [7:0] 2.05 Vpeak
-    _auto_config.DRIVE_TIME = 24;                                // Optimum drive time (ms) ≈ 0.5 × LRA Period
 
     pinMode(_trig_medial, OUTPUT);
     // pinMode(_trig_lateral, OUTPUT);
@@ -16,6 +13,9 @@ DRV2605_UTIL::DRV2605_UTIL()
     digitalWrite(_en_medial, LOW);
     digitalWrite(_en_lateral, LOW);
 
+    _auto_config.RATED_VOLTAGE = DRV_L_RV_LRA_CL_300US_2_0V_RMS; // Rated Voltage [7:0] 2 Vrms
+    _auto_config.OD_CLAMP = DRV_L_LRA_OD_CLAMP_2_05V;            // Overdrive Clamp Voltage: ODClamp [7:0] 2.05 Vpeak
+    _auto_config.DRIVE_TIME = 24;                                // Optimum drive time (ms) ≈ 0.5 × LRA Period
     disable();
 }
 DRV2605_UTIL::DRV2605_UTIL(DRV2605_Autocal_t auto_config)

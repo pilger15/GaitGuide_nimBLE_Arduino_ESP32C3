@@ -326,6 +326,7 @@ void setup()
     drv.setEnable(ENABLE_MEDIAL, ENABLE_LATERAL);
     drv.begin();
     drv.enable();
+    drv.registerDefault();
     drv.init();
 
     drv.disable();
