@@ -3,7 +3,7 @@ from bleak import BleakScanner, BleakClient
 import time
 
 BLE_DURATION_STIM_SERVICE_UUID = '1111'
-BLE_DURATION_MED_CHARACTERISTIC_UUID = '1114'  # '48e47602-1b27-11ee-be56-0242ac120002'
+BLE_DURATION_MED_CHARACTERISTIC_UUID = '1114'  # these need to be chaned at some point for BLE specificatin reasons '48e47602-1b27-11ee-be56-0242ac120002'
 BLE_DURATION_LAT_CHARACTERISTIC_UUID = '1113'  # '63bae092-1b27-11ee-be56-0242ac120002'
 
 timeout = 5
