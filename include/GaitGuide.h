@@ -15,7 +15,6 @@
 #define GAITGUIDE_MANAGER_H
 
 #include <Arduino.h>
-#include <DRV2605_util.h>
 #include "nvs_flash.h"
 #include "nvs.h"
 
@@ -34,36 +33,8 @@ typedef enum
 
 typedef enum
 {
-    GAITGUIDE_STATE_STARTUP,       ///< Start-up state
-    GAITGUIDE_STATE_LFC,           ///< Looking-for-connection state
-    GAITGUIDE_STATE_LOW_POWER,     ///< Low-power state
-    GAITGUIDE_STATE_IDLE,          ///< Idle state
-    GAITGUIDE_STATE_STIM,          ///< Stimulation state
-    GAITGUIDE_STATE_ACC,           ///< Pressure-finding state
-    GAITGUIDE_STATE_STOP_ACC,      ///< Pressure-setting state
-    GAITGUIDE_STATE_CHECK_PRESSURE ///< Check if currentPressure is within bounds of targetPressure
-} gaitGuide_state_t;
-
-typedef enum
-{
-    GAITGUIDE_EVENT_NONE,  ///< Default event: No Event
-    GAITGUIDE_EVENT_RESET, ///< Reset event: sets device into Start-up state
-
-    GAITGUIDE_EVENT_DONE,          ///< Done event: signals the completion of a task
-    GAITGUIDE_EVENT_SLEEP,         ///< Sets the device into low power mode
-    GAITGUIDE_EVENT_WAKEUP,        ///< Wake the device up from low power mode
-    GAITGUIDE_EVENT_BT_CONNECT,    ///< Bluetooth connection event
-    GAITGUIDE_EVENT_BT_DISCONNECT, ///< Bluetooth disconnection event
-    GAITGUIDE_EVENT_ACC,           ///< Start measuring acceleration
-    GAITGUIDE_EVENT_STOP_ACC,      ///< Stop measuring acceleration
-    GAITGUIDE_EVENT_STIM,          ///< Stimulation event
-    GAITGUIDE_EVENT_STOP_STIM      ///< stop Stimulation event
-} gaitGuide_event_t;
-
-typedef enum
-{
-    drv_medial,
-    drv_lateral
+    drv_right,
+    drv_left
 } DRV_pos_t;
 
 class GaitGuide
@@ -71,13 +42,8 @@ class GaitGuide
 public:
     static GaitGuide &getInstance();
 
-    gaitGuide_state_t currentState();
-    gaitGuide_event_t currentEvent();
-    uint8_t newEvent(gaitGuide_event_t event);
-    uint8_t nextEvent();
-
-    bool goMedial = false;
-    bool goLateral = false;
+    bool goRight = false;
+    bool goLeft = false;
 
     uint8_t deviceId() const;
     void deviceId(uint8_t value);
@@ -88,17 +54,6 @@ public:
     uint8_t batteryLevel() const;
     void batteryLevel(uint8_t batteryLevel);
 
-    uint8_t subjectId() const;
-    void subjectId(uint8_t subjectId);
-
-    uint16_t currentPressureLevel() const;
-    void set_currentPressureLevel(uint16_t currentPrepressureLevelssureLevel);
-
-    void setTargetPressure();
-    void setTargetPressure(uint8_t subjectId);
-    uint16_t getTargetPressure();
-    uint16_t getTargetPressure(uint8_t subjectId);
-
     gaitGuide_stimMode_t stimMode() const;
     void stimMode(gaitGuide_stimMode_t value);
 
@@ -107,11 +62,6 @@ public:
 
     void setAmplitude(const uint8_t data);
     void setDuration(const uint8_t data, bool driver_side);
-    /**
-     * @brief default stimulation using Amplitude Real Time Mode this is a "make work" solution
-     *
-     */
-    void stimulateDefault(bool driver_side);
 
     uint8_t duration(const uint8_t pos = 0)
     {
@@ -128,14 +78,12 @@ public:
         return m_effects[pos];
     }
 
-    DRV2605_UTIL *_drv_handle;
-
     // callbacks
-    typedef std::function<void(uint16_t)> CurrentPressureChangedCallback;
+    typedef std::function<void(bool)> StimulationCallback;
     // Set up a callback function to be called when m_currentPressure is changed
-    void onCurrentPressureChanged(const CurrentPressureChangedCallback &callback)
+    void onStimulation(const StimulationCallback &callback)
     {
-        m_currentPressureChangedCallback = callback;
+        m_stimulationCallback = callback;
     }
 
 private:
@@ -158,11 +106,6 @@ private:
         }
         ESP_ERROR_CHECK(err);
     };
-    void nvs_save_targetPressure(uint8_t subject_id, uint16_t pressure_value);
-    void nvs_save_targetPressure(const char *subject_key, uint16_t pressure_value);
-    uint16_t nvs_read_targetPressure(uint8_t subject_id);
-    uint16_t nvs_read_targetPressure(const char *subject_key);
-    uint16_t nvs_read_targetPressure_backup(uint8_t subject_id);
 
     uint8_t m_amplitude[8] = {0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t m_duration[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -171,20 +114,17 @@ private:
 
     uint8_t m_batteryLevel = 0;
     uint8_t m_subjectID = 0;
-    uint16_t m_currentPressure = 0;
-    uint16_t m_targetPressure = 0;
+
     bool m_is_timescale_5ms = false;
 
     uint8_t m_packet_seq = 0; // for
 
     gaitGuide_stimMode_t _stimMode = gaitGuide_stimMode_t::GAITGUIDE_USERMODE_AMPLITUDE;
-    gaitGuide_state_t m_currentState = GAITGUIDE_STATE_STARTUP;
-    gaitGuide_event_t m_currentEvent = GAITGUIDE_EVENT_NONE;
 
     const char *m_nvs_namespace = "gaitguide_NVS";
 
     // callbacks
-    CurrentPressureChangedCallback m_currentPressureChangedCallback;
+    StimulationCallback m_stimulationCallback;
 };
 
 #endif

@@ -10,17 +10,17 @@ public:
     }
 
     // Define a callback function type that takes a double as a parameter
-    typedef std::function<void(double)> CurrentPressureChangedCallback;
+    typedef std::function<void(double)> DurationChangedCallback;
 
     // Set up a callback function to be called when m_currentPressure is changed
-    void onCurrentPressureChanged(const CurrentPressureChangedCallback &callback)
+    void onCurrentPressureChanged(const DurationChangedCallback &callback)
     {
-        m_currentPressureChangedCallback = callback;
+        m_stimulationCallback = callback;
     }
 
 private:
     double m_currentPressure;
-    CurrentPressureChangedCallback m_currentPressureChangedCallback;
+    DurationChangedCallback m_stimulationCallback;
 };
 
 class BLE_handler

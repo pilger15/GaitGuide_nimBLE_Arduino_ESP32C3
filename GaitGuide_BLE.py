@@ -3,8 +3,8 @@ from bleak import BleakScanner, BleakClient
 import time
 
 BLE_DURATION_STIM_SERVICE_UUID = '1111'
-BLE_DURATION_MED_CHARACTERISTIC_UUID = '1114'  # these need to be chaned at some point for BLE specificatin reasons '48e47602-1b27-11ee-be56-0242ac120002'
-BLE_DURATION_LAT_CHARACTERISTIC_UUID = '1113'  # '63bae092-1b27-11ee-be56-0242ac120002'
+BLE_DURATION_RIGHT_CHARACTERISTIC_UUID = '1113'  # these need to be chaned at some point for BLE specificatin reasons '48e47602-1b27-11ee-be56-0242ac120002'
+BLE_DURATION_LEFT_CHARACTERISTIC_UUID = '1114'  # '63bae092-1b27-11ee-be56-0242ac120002'
 
 timeout = 5
 
@@ -32,15 +32,15 @@ async def run():
     service = GaitGuide.services.get_service(BLE_DURATION_STIM_SERVICE_UUID)
 
     if service:
-        medial = await get_characteristic(service, BLE_DURATION_MED_CHARACTERISTIC_UUID)
-        lateral = await get_characteristic(service, BLE_DURATION_LAT_CHARACTERISTIC_UUID)
+        Right = await get_characteristic(service, BLE_DURATION_RIGHT_CHARACTERISTIC_UUID)
+        Left = await get_characteristic(service, BLE_DURATION_LEFT_CHARACTERISTIC_UUID)
 
     count = 0
     while (GaitGuide.is_connected and count < 11):
-        await write_characteristic(GaitGuide, medial, 120)
+        await write_characteristic(GaitGuide, Right, 120)
         time.sleep(1)  # Sleep for 1 second
 
-        await write_characteristic(GaitGuide, lateral, 120)
+        await write_characteristic(GaitGuide, Left, 120)
         time.sleep(1)  # Sleep for 1 second
 
         count = count +1

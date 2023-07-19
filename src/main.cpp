@@ -2,10 +2,10 @@
  *
  * DRV2605-Driver interaction
  * Currently all drivers use the same I2C bus (only one I2 peripheral available).
- * Since there are multiple drivers present for each side (medial, lateral, two each)
+ * Since there are multiple drivers present for each side (Right, Left, two each)
  * and all devices have the same address, the bus can not be used  for reading actions.
  *
- * To control lateral and medial derivers independently, the external trigger level is used.
+ * To control Left and Right derivers independently, the external trigger level is used.
  *
  *  Created: 2023
  *      Author: JMartus
@@ -39,22 +39,20 @@
 #include "hal/usb_serial_jtag_ll.h"
 #include "driver/usb_serial_jtag.h"
 
-#include "esp_timer.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #define I2C_SDA D4
 #define I2C_SCL D5
 #define I2C_FREQ 20000UL // 500000UL
-#define TRIGGER_MEDIAL D0
-#define TRIGGER_LATERAL D1
-#define ENABLE_MEDIAL D3
-#define ENABLE_LATERAL D2
+#define TRIGGER_Right D0
+#define TRIGGER_Left D1
+#define ENABLE_Right D3
+#define ENABLE_Left D2
 // TwoWire I2C = TwoWire(0);
 
-#define SPI_CS_LATERAL D7
-#define SPI_CS_MEDIAL D6
+#define SPI_CS_Left D7
+#define SPI_CS_Right D6
 #define SPI_CLK D8
 #define SPI_MISO D10
 #define SPI_MOSI D9
@@ -70,19 +68,19 @@
 #define ACC_SCALE ACCEL_16G
 #define ACC_AXIS Z_AXIS_ONLY
 
-uint8_t *acc_medial_buffer; //[ACC_BUFFER_BYTES + ACC_BUFFER_OVERHEAD];
-iis3dwb_device_t acc_medial = {
+uint8_t *acc_Right_buffer; //[ACC_BUFFER_BYTES + ACC_BUFFER_OVERHEAD];
+iis3dwb_device_t acc_Right = {
     .IDx = (uint8_t)'0',
     .full_scale = ACC_SCALE,
     .xl_axis = ACC_AXIS,
-    .data_buffer = acc_medial_buffer};
+    .data_buffer = acc_Right_buffer};
 
-uint8_t *acc_lateral_buffer; //[ACC_BUFFER_BYTES + ACC_BUFFER_OVERHEAD];
-iis3dwb_device_t acc_lateral{
+uint8_t *acc_Left_buffer; //[ACC_BUFFER_BYTES + ACC_BUFFER_OVERHEAD];
+iis3dwb_device_t acc_Left{
     .IDx = (uint8_t)'1',
     .full_scale = ACC_SCALE,
     .xl_axis = ACC_AXIS,
-    .data_buffer = acc_lateral_buffer};
+    .data_buffer = acc_Left_buffer};
 
 #define USB_NUM_BUFFER 2
 #define USB_BUFFER_SCALE 4
@@ -91,7 +89,6 @@ iis3dwb_device_t acc_lateral{
 // uint8_t usb_buffer_tx[USB_NUM_BUFFER][USB_BUFFER_TX];
 uint8_t usb_buffer_rx[USB_BUFFER_RX];
 
-DRV2605_UTIL drv;
 bool is_timescale_1ms = false;
 
 unsigned long time_us = 0;
@@ -122,20 +119,13 @@ uint8_t rtp_size = sizeof(rtp) / sizeof(rtp[0]);
 uint8_t rtp_amp = 0x00;
 
 uint16_t targetLED = 1400;
-uint16_t margin = 100;
-uint16_t bound = 500;
-
-esp_timer_handle_t stimulation_timer;
-esp_timer_handle_t acceleration_timer;
 
 bool streaming = false;
+auto &drv = DRV2605_UTIL::getInstance();
 auto &gaitGuide = GaitGuide::getInstance();
 gaitGuide_stimMode_t stimMode = gaitGuide.stimMode();
 
-void timer_setup();
 void ble_setup();
-void stimulation();
-void findPressure();
 void accelerometer_setup(void);
 void accelerometer_config(iis3dwb_device_t *device, gpio_num_t cs_pin);
 void usb_init();
@@ -166,88 +156,88 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
         //.flags = SPI_DEVICE_HALFDUPLEX,
         .cmd = SPI_READ_CMD,
         .addr = IIS3DWB_FIFO_DATA_OUT_TAG,
-        .rx_buffer = acc_medial_buffer};
+        .rx_buffer = acc_Right_buffer};
 
     spi_transaction_t spi_read_fifo2 = {
         //.flags = SPI_DEVICE_HALFDUPLEX,
         .cmd = SPI_READ_CMD,
         .addr = IIS3DWB_FIFO_DATA_OUT_TAG,
-        .rx_buffer = acc_lateral_buffer};
+        .rx_buffer = acc_Left_buffer};
 
     iis3dwb_fifo_status_t status0, status1;
     uint16_t num_words0 = 0,
              num_words1 = 0;
 
-    iis3dwb_fifo_mode_set(&acc_lateral, IIS3DWB_STREAM_MODE);
-    iis3dwb_fifo_mode_set(&acc_medial, IIS3DWB_STREAM_MODE);
+    iis3dwb_fifo_mode_set(&acc_Left, IIS3DWB_STREAM_MODE);
+    iis3dwb_fifo_mode_set(&acc_Right, IIS3DWB_STREAM_MODE);
     vTaskDelay(pdMS_TO_TICKS(6));
     // for future reference - queue tansacion and read out last queue  to allow simulaion request in the middle
     while (streaming)
     {
 
-        if (iis3dwb_who_am_i(&acc_medial) == IIS3DWB_WHO_AM_I_EXPECTED)
+        if (iis3dwb_who_am_i(&acc_Right) == IIS3DWB_WHO_AM_I_EXPECTED)
         {
-            // ESP_ERROR_CHECK(spi_device_acquire_bus(acc_medial.spi_handle, portMAX_DELAY));
-            status0 = iis3dwb_fifo_status_get(&acc_medial);
+            // ESP_ERROR_CHECK(spi_device_acquire_bus(acc_Right.spi_handle, portMAX_DELAY));
+            status0 = iis3dwb_fifo_status_get(&acc_Right);
             num_words0 = (uint16_t)status0.data & 0x03FF;
 
             if (status0.fifo_status.status2.status2.fifo_ovr_ia)
             {
-                log_e("\n\e[1;31mFIFO MEDIAL OVERRUN\e[0;38m\n");
+                log_e("\n\e[1;31mFIFO Right OVERRUN\e[0;38m\n");
                 digitalWrite(D1, HIGH);
             }
             //(uint16_t)(status0.fifo_status.status2.status2.diff_fifo << 8) | status0.fifo_status.status1.fifo_status1.diff_fifo;
-            // iis3dwb_fifo_batch_get(&acc_medial, num_words0);
-            // spi_device_release_bus(acc_medial.spi_handle);
+            // iis3dwb_fifo_batch_get(&acc_Right, num_words0);
+            // spi_device_release_bus(acc_Right.spi_handle);
         }
         else
         {
-            log_e("Device %d was not found", acc_medial.IDx);
+            log_e("Device %d was not found", acc_Right.IDx);
         }
 
-        if (iis3dwb_who_am_i(&acc_lateral) == IIS3DWB_WHO_AM_I_EXPECTED)
+        if (iis3dwb_who_am_i(&acc_Left) == IIS3DWB_WHO_AM_I_EXPECTED)
         {
-            status1 = iis3dwb_fifo_status_get(&acc_lateral);
+            status1 = iis3dwb_fifo_status_get(&acc_Left);
             num_words1 = (uint16_t)status1.data & 0x03FF;
 
             if (status1.fifo_status.status2.status2.fifo_ovr_ia)
             {
-                log_e("\n\e[1;31mFIFO LATERAL OVERRUN\e[0;38m\n");
+                log_e("\n\e[1;31mFIFO Left OVERRUN\e[0;38m\n");
                 digitalWrite(D1, HIGH);
             }
         }
         else
         {
-            log_e("Device %d was not found", acc_lateral.IDx);
+            log_e("Device %d was not found", acc_Left.IDx);
         }
 
         if (num_words0)
         {
             spi_read_fifo1.length = num_words0 * 8 * ACC_WORD;
             spi_read_fifo1.rxlength = num_words0 * 8 * ACC_WORD;
-            ESP_ERROR_CHECK(spi_device_queue_trans(acc_medial.spi_handle, &spi_read_fifo1, pdMS_TO_TICKS(15)));
+            ESP_ERROR_CHECK(spi_device_queue_trans(acc_Right.spi_handle, &spi_read_fifo1, pdMS_TO_TICKS(15)));
         }
-        if (num_words0)
+        if (num_words1)
         {
             spi_read_fifo2.length = num_words1 * 8 * ACC_WORD;
             spi_read_fifo2.rxlength = num_words1 * 8 * ACC_WORD;
-            ESP_ERROR_CHECK(spi_device_queue_trans(acc_lateral.spi_handle, &spi_read_fifo2, pdMS_TO_TICKS(15)));
+            ESP_ERROR_CHECK(spi_device_queue_trans(acc_Left.spi_handle, &spi_read_fifo2, pdMS_TO_TICKS(15)));
         }
         vTaskDelay(pdMS_TO_TICKS(10));
 
         if (num_words0)
         {
 
-            spi_device_get_trans_result(acc_medial.spi_handle, &trans_result, pdMS_TO_TICKS(2));
-            //  memcpy(&sendUSB, acc_medial_buffer, ACC_BUFFER_OVERHEAD);log_e("before");
-            memcpy(WORDS, acc_medial_buffer, num_words0 * ACC_WORD);
+            spi_device_get_trans_result(acc_Right.spi_handle, &trans_result, pdMS_TO_TICKS(2));
+            //  memcpy(&sendUSB, acc_Right_buffer, ACC_BUFFER_OVERHEAD);log_e("before");
+            memcpy(WORDS, acc_Right_buffer, num_words0 * ACC_WORD);
             for (int i = 0; i < num_words0; i++)
             {
                 sendUSB.int16[i] = WORDS[i].OUT_WORD.OUT_A.OUT_A.OUT_A_Z;
             }
 
             usb_serial_jtag_write_bytes(&header, 3, pdMS_TO_TICKS(1));
-            usb_serial_jtag_write_bytes(&acc_medial.IDx, 1, pdMS_TO_TICKS(1));
+            usb_serial_jtag_write_bytes(&acc_Right.IDx, 1, pdMS_TO_TICKS(1));
             // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&num_words0, 2, pdMS_TO_TICKS(1));
 
@@ -257,14 +247,14 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
         if (num_words1)
         {
 
-            spi_device_get_trans_result(acc_lateral.spi_handle, &trans_result, pdMS_TO_TICKS(2));
-            memcpy(WORDS, acc_lateral_buffer, num_words1 * ACC_WORD);
+            spi_device_get_trans_result(acc_Left.spi_handle, &trans_result, pdMS_TO_TICKS(2));
+            memcpy(WORDS, acc_Left_buffer, num_words1 * ACC_WORD);
             for (int i = 0; i < num_words1; i++)
             {
                 sendUSB.int16[i] = WORDS[i].OUT_WORD.OUT_A.OUT_A.OUT_A_Z;
             }
             usb_serial_jtag_write_bytes(&header, 3, pdMS_TO_TICKS(1));
-            usb_serial_jtag_write_bytes(&acc_lateral.IDx, 1, pdMS_TO_TICKS(1));
+            usb_serial_jtag_write_bytes(&acc_Left.IDx, 1, pdMS_TO_TICKS(1));
             // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&num_words1, 2, pdMS_TO_TICKS(1));
             send1 = usb_serial_jtag_write_bytes(&sendUSB, num_words1 * sizeof(uint16_t), pdMS_TO_TICKS(1));
@@ -273,18 +263,9 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
 
         taskYIELD();
     }
-    iis3dwb_fifo_mode_set(&acc_lateral, IIS3DWB_BYPASS_MODE);
-    iis3dwb_fifo_mode_set(&acc_medial, IIS3DWB_BYPASS_MODE);
+    iis3dwb_fifo_mode_set(&acc_Left, IIS3DWB_BYPASS_MODE);
+    iis3dwb_fifo_mode_set(&acc_Right, IIS3DWB_BYPASS_MODE);
     vTaskDelete(NULL);
-}
-
-static void stimulation_timer_callback(void *arg)
-{
-    drv.setRealtimeValue(0x00);
-    drv.disable();
-    gaitGuide.goLateral = false;
-    gaitGuide.goMedial = false;
-    log_d("\n--------------STOPPED-------------------\n\n");
 }
 
 int is_plugged_usb(void)
@@ -318,15 +299,12 @@ void usbTask(void *pvParameters)
 }
 void setup()
 {
-
+    delay(1000);
     log_i("Initialising GaitGuide");
-    // esp_log_level_set("*", ESP_LOG_NONE);
-    //  Wire.setClock();
     Wire.setPins(I2C_SDA, I2C_SCL);
-    // I2C.begin(I2C_SDA, I2C_SCL, I2C_FREQ);
     delay(1);
-    drv.setTrigger(TRIGGER_MEDIAL, TRIGGER_LATERAL);
-    drv.setEnable(ENABLE_MEDIAL, ENABLE_LATERAL);
+    drv.setTrigger(TRIGGER_Right, TRIGGER_Left);
+    drv.setEnable(ENABLE_Right, ENABLE_Left);
     drv.begin();
     drv.enable();
     drv.registerDefault();
@@ -339,210 +317,15 @@ void setup()
     led_setup();
 
     accelerometer_setup();
-    timer_setup();
 
     pinMode(D1, OUTPUT);
     led_breath();
     xTaskCreate(usbTask, "USB_TASK", 1024, NULL, 1, NULL);
-    // led_setup();
-    // configure_adc(ADC_WIDTH_BIT_12, ADC_ATTEN_DB_11);
+    log_i("Initialisation Complete");
 }
 
 void loop()
 {
-    switch (gaitGuide.currentState())
-    {
-    case GAITGUIDE_STATE_STARTUP:
-        // Handle Start-up state
-        // if this state is reached the startup phase is completed
-        log_i("Initialisation complete");
-        gaitGuide.newEvent(GAITGUIDE_EVENT_DONE);
-        break;
-
-    case GAITGUIDE_STATE_LFC:
-        //   log_d("Entering LFC_State");
-        // Handle Looking-for-connection state
-        // #TODO: implement breathing and advertising as well as sleeping
-        gaitGuide.newEvent(GAITGUIDE_EVENT_BT_CONNECT);
-        break;
-
-    case GAITGUIDE_STATE_LOW_POWER:
-        //   log_d("Entering Low Power State");
-        // Handle Low-power state
-        // #TODO: implement breathing and advertising as well as sleeping
-        break;
-
-    case GAITGUIDE_STATE_IDLE:
-
-        // log_d("Entering IDLE_State");
-        // Handle Idle state
-        // time for an event to occur, in case an event occurs dont do idle  tasks
-        // #TODO implementiere entsprechenden timer
-
-        // #TODO update Battery
-
-        break;
-
-    case GAITGUIDE_STATE_STIM:
-        // log_d("Entering STIM_State");
-        // Handle Stimulation state
-        stimulation();
-        gaitGuide.newEvent(GAITGUIDE_EVENT_DONE);
-        break;
-
-    case GAITGUIDE_STATE_ACC:
-        // toggles acc measurement
-        // gaitGuide.newEvent(GAITGUIDE_EVENT_DONE);
-        break;
-
-    case GAITGUIDE_STATE_STOP_ACC:
-        // Handle Pressure-setting state
-        // When a pressure value != 0 has been sent, use this to set the pressure, otherwise measure and set the current pressure as targetPressure        */
-        gaitGuide.setTargetPressure(multisample_read(16));
-        break;
-    case GAITGUIDE_STATE_CHECK_PRESSURE:
-        // #TODO implementiere entsprechenden timer nud event
-        gaitGuide.set_currentPressureLevel(multisample_read(16)); // multisample_read(16));
-        break;
-    default:
-        // Handle error state
-        break;
-    }
-    // indicate that all events have been processed - free the event handler
-    gaitGuide.nextEvent();
-}
-
-void findPressure()
-{
-    // #TODO SET up pressure finding mode
-    ESP_LOGI("+++", "USERPRESSURE");
-
-    uint16_t voltage = 0;
-    uint16_t led_dutycycle = 0;
-
-    // this event indicates pressure mode is entered for the first time
-    if (gaitGuide.currentEvent() == GAITGUIDE_EVENT_ACC)
-    {
-        led_pressureMode();
-    }
-
-    voltage = multisample_read(16);
-    gaitGuide.set_currentPressureLevel(voltage); // multisample_read(16));
-    ble_advertisePressure(voltage);
-    if (voltage > (gaitGuide.getTargetPressure() + margin))
-    {
-
-        if (voltage > (gaitGuide.getTargetPressure() + bound))
-        {
-            led_dutycycle = 255;
-        }
-        else
-        {
-            // map voltage to 0-255
-            led_dutycycle = (voltage - (gaitGuide.getTargetPressure() + margin)) * 255 / (bound - margin);
-
-            // fadeTo = (255.0 / (pow(R, ((bound - margin) / 255)))) * pow(R, (voltage - (targetLED + margin)));
-        }
-        ESP_LOGI("+++", "RED  TARGET:%d VALUE: %d -- FADE:%d", gaitGuide.getTargetPressure(), voltage, led_dutycycle);
-        led_fade_exponentially(led_dutycycle, LED_RED);
-        led_fade_to(0, LED_BLUE);
-    }
-    else if (voltage < (gaitGuide.getTargetPressure() - margin))
-    {
-        led_dutycycle = ((gaitGuide.getTargetPressure() - margin) - voltage) * 255 / (bound - margin);
-
-        if (voltage < (gaitGuide.getTargetPressure() - bound))
-        {
-            led_dutycycle = 255;
-        }
-        led_fade_exponentially(led_dutycycle, LED_BLUE);
-        led_fade_to(0, LED_RED);
-        ESP_LOGI("---", "BLUE|| TARGET:%d VALUE: %d -- FADE:%d", gaitGuide.getTargetPressure(), voltage, led_dutycycle);
-    }
-    else
-    {
-        led_fade_to(0, LED_RED);
-        led_fade_to(0, LED_BLUE);
-    }
-
-    //  delay(100);
-}
-void stimulation()
-{
-    log_i("starting stimulation");
-    switch (gaitGuide.stimMode())
-    {
-    case GAITGUIDE_USERMODE_AMPLITUDE:
-        if (gaitGuide.goMedial)
-        {
-            drv.enableMedial();
-        }
-        else
-        {
-            drv.enableLateral();
-        }
-        drv.setRealtimeValue(gaitGuide.amp());
-        ESP_ERROR_CHECK(esp_timer_start_once(stimulation_timer, gaitGuide.duration() * 1000)); // time in us
-        //  ESP_LOGD(TAG_DRV, "SetRealtimeValue = %d for %dms", gaitGuide.amp(), gaitGuide.duration());
-        break;
-
-    case GAITGUIDE_USERMODE_EFFECT:
-        if (gaitGuide.goMedial)
-        {
-            drv.enableMedial();
-            drv.startMedial();
-        }
-        else
-        {
-
-            drv.enableLateral();
-            drv.startLateral();
-        }
-        delay(gaitGuide.duration());
-        drv.stop();
-        drv.disable();
-        //   ESP_LOGD(TAG_DRV, "Effect #%d: %s for %dms", gaitGuide.effect(0), drv_effect_string_map[gaitGuide.effect(0)], gaitGuide.duration());
-        break;
-
-    case GAITGUIDE_USERMODE_PRESSURE:
-        // #TODO remove and clean-up usermodes
-        break;
-    case GAITGUIDE_USERMODE_DEMO00:
-
-        //** ROB MODE **/
-
-        drv.enable();
-        drv.setMode(DRV2605_MODE_EXTTRIGLVL);
-
-        effect = DRV_EFF_STRONG_BUZZ_100;
-        for (uint8_t i = 0; i < 8; i++)
-        {
-            drv.setWaveform(i, effect);
-        }
-        drv.disable();
-        while (gaitGuide.stimMode() == GAITGUIDE_USERMODE_DEMO00)
-        {
-            drv.enableMedial();
-            // #TODO: move to drv
-            log_d("USERDEMO\n---------\n");
-
-            drv.startMedial();
-            // digitalWrite(TRIGGER_LATERAL, HIGH);
-            delay(150);
-            // stop
-            // drv.writeRegister8(DRV2605_REG_GO, 0);
-            drv.stopMedial();
-            drv.disableMedial();
-            // digitalWrite(TRIGGER_LATERAL, LOW);
-            delay(10000);
-        }
-
-        ESP_LOGD(TAG_DRV, "SetRealtimeValue = %d for %dms", gaitGuide.amp(), gaitGuide.duration());
-        break;
-    default:
-        ESP_LOGD(TAG_DRV, "Undefined Usermode");
-        break;
-    }
 }
 
 void accelerometer_config(iis3dwb_device_t *device, gpio_num_t cs_pin)
@@ -615,10 +398,10 @@ void accelerometer_setup(void)
 {
 
     // setup buffers
-    acc_medial_buffer = (uint8_t *)heap_caps_malloc(ACC_BUFFER_BYTES, MALLOC_CAP_DMA);
+    acc_Right_buffer = (uint8_t *)heap_caps_malloc(ACC_BUFFER_BYTES, MALLOC_CAP_DMA);
 
     // setup buffers
-    acc_lateral_buffer = (uint8_t *)heap_caps_malloc(ACC_BUFFER_BYTES, MALLOC_CAP_DMA);
+    acc_Left_buffer = (uint8_t *)heap_caps_malloc(ACC_BUFFER_BYTES, MALLOC_CAP_DMA);
 
     // SPI
     spi_bus_config_t bus_cfg = {
@@ -631,20 +414,9 @@ void accelerometer_setup(void)
     };
     ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO));
     log_i("init ACCs");
-    accelerometer_config(&acc_medial, (gpio_num_t)SPI_CS_MEDIAL);
-    accelerometer_config(&acc_lateral, (gpio_num_t)SPI_CS_LATERAL);
+    accelerometer_config(&acc_Right, (gpio_num_t)SPI_CS_Right);
+    accelerometer_config(&acc_Left, (gpio_num_t)SPI_CS_Left);
     delay(IIS3DWB_BOOT_TIME);
-}
-
-void timer_setup()
-{
-    const esp_timer_create_args_t stimulation_timer_args = {
-        .callback = &stimulation_timer_callback,
-        /* name is optional, but may help identify the timer when debugging */
-        .name = "stimulation_timer"};
-    ESP_ERROR_CHECK(esp_timer_create(&stimulation_timer_args, &stimulation_timer));
-
-    // #debug
 }
 
 void usb_init()

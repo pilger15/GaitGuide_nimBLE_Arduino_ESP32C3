@@ -6,6 +6,8 @@ The defines and lists have been mostly generated using ChatGPT
 #define DRV2605_UTIL_H
 #include <Adafruit_DRV2605.h>
 #include <DRV2605_EFFECTS.h>
+#include <GaitGuide.h>
+#include "esp_timer.h"
 
 /*
 	"#1: Strong Click - 100%",
@@ -185,10 +187,11 @@ static const char *TAG_DRV = "DRV2605L";
 class DRV2605_UTIL : public Adafruit_DRV2605
 {
 public:
-	DRV2605_UTIL(void);
-	DRV2605_UTIL(DRV2605_Autocal_t auto_config);
+	static DRV2605_UTIL &getInstance();
+	GaitGuide &gaitGuide = GaitGuide::getInstance();
 
-	void enable(bool medial, bool lateral);
+	void initialise();
+	void enable(bool Right, bool Left);
 
 	void set_ratedVoltage(uint8_t ratedVoltage);
 	void set_odClamp(uint8_t odClamp);
@@ -198,39 +201,47 @@ public:
 	void init();
 	void init(DRV2605_Autocal_t auto_config);
 
-	void setTrigger(uint8_t medial, uint8_t lateral);
+	void setTrigger(uint8_t Right, uint8_t Left);
 
-	void startMedial();
-	void stopMedial();
+	void startRight();
+	void stopRight();
 
-	void startLateral();
-	void stopLateral();
+	void startLeft();
+	void stopLeft();
 
 	void start();
 	void stop();
 
-	void setEnable(uint8_t medial, uint8_t lateral);
+	void setEnable(uint8_t Right, uint8_t Left);
 	void enable();
 	void disable();
-	void enableMedial();
-	void disableMedial();
+	void enableRight();
+	void disableRight();
 
-	void enableLateral();
-	void disableLateral();
+	void enableLeft();
+	void disableLeft();
 
 	bool timescale();
 	void timescale(bool is_timescale_1ms);
 
+	void stimulate(bool stimDirection);
+
 private:
+	DRV2605_UTIL(void);
+	DRV2605_UTIL(DRV2605_Autocal_t auto_config);
+	DRV2605_UTIL &operator=(const DRV2605_UTIL &) = delete;
 	// Adafruit_I2CDevice *i2c_dev = NULL; ///< Pointer to I2C bus interface
-	DRV2605_Autocal_t _auto_config;
-	uint8_t _trig_medial = D3;
-	uint8_t _trig_lateral = D4;
+	DRV2605_Autocal_t m_auto_config;
 
-	uint8_t _en_medial = D2;
-	uint8_t _en_lateral = D1;
+	esp_timer_handle_t stimulation_timer;
 
-	bool _is_timescale_1ms = false;
+	uint8_t m_trig_Right = D3;
+	uint8_t m_trig_Left = D4;
+
+	uint8_t m_en_Right = D2;
+	uint8_t m_en_Left = D1;
+
+	bool m_is_timescale_1ms = false;
 };
 
 #endif // DRV2605_UTIL_H
