@@ -38,13 +38,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define I2C_SDA D4
-#define I2C_SCL D5
+#define I2C_SDA D2       // D4
+#define I2C_SCL D3       // D5
 #define I2C_FREQ 20000UL // 500000UL
-#define TRIGGER_Right D0
-#define TRIGGER_Left D1
-#define ENABLE_Right D3
-#define ENABLE_Left D2
+#define TRIGGER_Right D6 // D0
+#define TRIGGER_Left D6  // D1
+#define ENABLE_Right D5  // D3
+#define ENABLE_Left D5   // D2
 // TwoWire I2C = TwoWire(0);
 
 #define SPI_CS_Left D7
@@ -181,7 +181,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             if (status0.fifo_status.status2.status2.fifo_ovr_ia)
             {
                 log_e("\n\e[1;31mFIFO Right OVERRUN\e[0;38m\n");
-                // digitalWrite(D1, HIGH);
+                digitalWrite(D6, HIGH);
             }
             //(uint16_t)(status0.fifo_status.status2.status2.diff_fifo << 8) | status0.fifo_status.status1.fifo_status1.diff_fifo;
             // iis3dwb_fifo_batch_get(&acc_Right, num_words0);
@@ -190,7 +190,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
         else
         {
             log_e("Device %d was not found", acc_Right.IDx);
-            digitalWrite(D1, HIGH);
+            digitalWrite(D6, HIGH);
         }
 
         if (iis3dwb_who_am_i(&acc_Left) == IIS3DWB_WHO_AM_I_EXPECTED)
@@ -201,13 +201,13 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             if (status1.fifo_status.status2.status2.fifo_ovr_ia)
             {
                 log_e("\n\e[1;31mFIFO Left OVERRUN\e[0;38m\n");
-                // digitalWrite(D1, HIGH);
+                digitalWrite(D6, HIGH);
             }
         }
         else
         {
             log_e("Device %d was not found", acc_Left.IDx);
-            digitalWrite(D1, HIGH);
+            digitalWrite(D6, HIGH);
         }
 
         if (num_words0)
@@ -329,14 +329,14 @@ void setup()
 
     accelerometer_setup();
 
-    pinMode(D1, OUTPUT);
+    pinMode(D6, OUTPUT);
     led_breath();
     xTaskCreate(usbTask, "USB_TASK", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
 
     xTaskCreate(
         stimTask,
         "TaskRunnerTask",
-        configMINIMAL_STACK_SIZE,
+        configMINIMAL_STACK_SIZE * 4,
         NULL, // Pass the 'this' pointer to the task as the task parameter
         tskIDLE_PRIORITY + 10,
         NULL);
@@ -404,7 +404,7 @@ void accelerometer_config(iis3dwb_device_t *device, gpio_num_t cs_pin)
     if (iis3dwb_who_am_i(device) != IIS3DWB_WHO_AM_I_EXPECTED)
     {
         log_e("Device %d was not found", device->IDx);
-        digitalWrite(D1, HIGH);
+        // digitalWrite(D1, HIGH);
     }
     else
     {
