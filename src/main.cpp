@@ -12,11 +12,7 @@
  */
 
 /*
-#TODO ----------------------------------------------
-- implement different SPI transactions
-- make DMA transactions for buffer
-- implement USB-Jtag
--  stream Fifo data
+
 */
 
 #include "Adafruit_DRV2605.h"
@@ -56,7 +52,7 @@
 #define SPI_CLK D8
 #define SPI_MISO D10
 #define SPI_MOSI D9
-#define SPI_FREQUENCY (10 * 1000 * 1000) // 10 Mhz max -> may need to be reduced if so check tCS->CLK
+#define SPI_FREQUENCY (20 * 1000 * 1000) // 10 Mhz max -> may need to be reduced if so check tCS->CLK
 
 #define ACC_WORD 7
 #define ACC_BUFFER_WORDS 512
@@ -172,6 +168,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
     iis3dwb_fifo_mode_set(&acc_Right, IIS3DWB_STREAM_MODE);
     vTaskDelay(pdMS_TO_TICKS(6));
     // for future reference - queue tansacion and read out last queue  to allow simulaion request in the middle
+
     while (streaming)
     {
 
@@ -184,7 +181,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             if (status0.fifo_status.status2.status2.fifo_ovr_ia)
             {
                 log_e("\n\e[1;31mFIFO Right OVERRUN\e[0;38m\n");
-                digitalWrite(D1, HIGH);
+                // digitalWrite(D1, HIGH);
             }
             //(uint16_t)(status0.fifo_status.status2.status2.diff_fifo << 8) | status0.fifo_status.status1.fifo_status1.diff_fifo;
             // iis3dwb_fifo_batch_get(&acc_Right, num_words0);
@@ -193,6 +190,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
         else
         {
             log_e("Device %d was not found", acc_Right.IDx);
+            digitalWrite(D1, HIGH);
         }
 
         if (iis3dwb_who_am_i(&acc_Left) == IIS3DWB_WHO_AM_I_EXPECTED)
@@ -203,12 +201,13 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             if (status1.fifo_status.status2.status2.fifo_ovr_ia)
             {
                 log_e("\n\e[1;31mFIFO Left OVERRUN\e[0;38m\n");
-                digitalWrite(D1, HIGH);
+                // digitalWrite(D1, HIGH);
             }
         }
         else
         {
             log_e("Device %d was not found", acc_Left.IDx);
+            digitalWrite(D1, HIGH);
         }
 
         if (num_words0)
@@ -238,11 +237,10 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
 
             usb_serial_jtag_write_bytes(&header, 3, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&acc_Right.IDx, 1, pdMS_TO_TICKS(1));
-            // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&num_words0, 2, pdMS_TO_TICKS(1));
 
             send0 = usb_serial_jtag_write_bytes(&sendUSB, num_words0 * sizeof(uint16_t), pdMS_TO_TICKS(1));
-            usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
+            // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
         }
         if (num_words1)
         {
@@ -255,10 +253,10 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             }
             usb_serial_jtag_write_bytes(&header, 3, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&acc_Left.IDx, 1, pdMS_TO_TICKS(1));
-            // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
             usb_serial_jtag_write_bytes(&num_words1, 2, pdMS_TO_TICKS(1));
+
             send1 = usb_serial_jtag_write_bytes(&sendUSB, num_words1 * sizeof(uint16_t), pdMS_TO_TICKS(1));
-            usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
+            // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
         }
 
         taskYIELD();
@@ -297,15 +295,28 @@ void usbTask(void *pvParameters)
     }
     vTaskDelete(NULL);
 }
+void stimTask(void *pvParameters)
+{
+    while (1)
+    {
+        if (gaitGuide.goLeft || gaitGuide.goRight)
+        {
+            drv.stimulate(gaitGuide.goLeft, gaitGuide.goRight);
+            vTaskDelay(pdTICKS_TO_MS(gaitGuide.duration() + 10)); // wait for stimulation to end + a few extra milliseconds
+        }
+
+        taskYIELD();
+    }
+    vTaskDelete(NULL);
+}
 void setup()
 {
-    delay(1000);
     log_i("Initialising GaitGuide");
     Wire.setPins(I2C_SDA, I2C_SCL);
     delay(1);
-    drv.setTrigger(TRIGGER_Right, TRIGGER_Left);
-    drv.setEnable(ENABLE_Right, ENABLE_Left);
-    drv.begin();
+    // drv.setTrigger(TRIGGER_Right, TRIGGER_Left);
+    drv.setEnablePins(ENABLE_Right, ENABLE_Left);
+    drv.begin(&Wire);
     drv.enable();
     drv.registerDefault();
     drv.init();
@@ -320,7 +331,15 @@ void setup()
 
     pinMode(D1, OUTPUT);
     led_breath();
-    xTaskCreate(usbTask, "USB_TASK", 1024, NULL, 1, NULL);
+    xTaskCreate(usbTask, "USB_TASK", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
+
+    xTaskCreate(
+        stimTask,
+        "TaskRunnerTask",
+        configMINIMAL_STACK_SIZE,
+        NULL, // Pass the 'this' pointer to the task as the task parameter
+        tskIDLE_PRIORITY + 10,
+        NULL);
     log_i("Initialisation Complete");
 }
 
@@ -381,11 +400,11 @@ void accelerometer_config(iis3dwb_device_t *device, gpio_num_t cs_pin)
     iis3dwb_xl_hp_path_on_out_set(device, IIS3DWB_LP_6k3Hz);
     // iis3dwb_xl_filter_lp2_set(handle, PROPERTY_ENABLE);
     iis3dwb_wake(device);
-
     /* Wait stable output */
     if (iis3dwb_who_am_i(device) != IIS3DWB_WHO_AM_I_EXPECTED)
     {
         log_e("Device %d was not found", device->IDx);
+        digitalWrite(D1, HIGH);
     }
     else
     {

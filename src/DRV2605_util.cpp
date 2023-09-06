@@ -17,20 +17,35 @@ DRV2605_UTIL::DRV2605_UTIL(DRV2605_Autocal_t auto_config)
 
 void DRV2605_UTIL::set_ratedVoltage(uint8_t ratedVoltage)
 {
+    bool state_left = m_enable_state[0];
+    bool state_right = m_enable_state[1];
+    enable();
+
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_RATEDV, ratedVoltage);
+
+    if (!state_right)
+    {
+        disableRight();
+    }
+    if (!state_left)
+    {
+        disableLeft();
+    }
 }
 void DRV2605_UTIL::set_odClamp(uint8_t odClamp)
 {
+    bool state_left = m_enable_state[0];
+    bool state_right = m_enable_state[1];
+    enable();
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_CLAMPV, odClamp);
 }
 void DRV2605_UTIL::autoCalibrate()
 {
-    ESP_LOGE("DRV_UTIL", "START autocalibration");
+    ESP_LOGI("DRV_UTIL", "START autocalibration");
     // DRV2605_REG_FEEDBACK - 0x1A
     // see DRV setup guide 2.2. LRA Auto calibration and C10-100 LRA by Precision Microdrives
 
-    // TODO POWER PIN
-
+    enable();
     // Write a value of 0x07 to register 0x01. This value moves the DRV2605L device out of STANDBY and places
     // the MODE [2:0] bits in auto - calibration mode.
     Adafruit_DRV2605::setMode(DRV2605_MODE_AUTOCAL);
@@ -62,12 +77,14 @@ void DRV2605_UTIL::autoCalibrate()
     }
     */
 
-    ESP_LOGE("DRV_UTIL", "END autocalibration");
+    ESP_LOGI("DRV_UTIL", "END autocalibration");
 }
 
 void DRV2605_UTIL::registerDefault()
 {
-
+    bool state_left = m_enable_state[0];
+    bool state_right = m_enable_state[1];
+    enable();
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_MODE,
                                      (DRV_DEV_RESET_OFF << 7) | (DRV_STANDBY_READY << 6) | (DRV2605_MODE_AUTOCAL));
     // Populate the input parameters required by the auto-calibration engine
@@ -88,6 +105,14 @@ void DRV2605_UTIL::registerDefault()
 
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_CONTROL4,
                                      (DRV_ZC_DET_TIME_100US << 6) | (DRV_AUTOCAL_TIME_1000MS << 4) | (DRV_OTP_PRG_OFF));
+    if (!state_right)
+    {
+        disableRight();
+    }
+    if (!state_left)
+    {
+        disableLeft();
+    }
 }
 
 /*  Initialization Procedure  */
@@ -117,26 +142,15 @@ void DRV2605_UTIL::init()
 {
     m_auto_config.RATED_VOLTAGE = DRV_L_RV_LRA_CL_300US_2_0V_RMS; // Rated Voltage [7:0] 2 Vrms
     m_auto_config.OD_CLAMP = DRV_L_LRA_OD_CLAMP_2_05V;            // Overdrive Clamp Voltage: ODClamp [7:0] 2.05 Vpeak
-    m_auto_config.DRIVE_TIME = 24;                                // Optimum drive time (ms) ≈ 0.5 × LRA Period
+    m_auto_config.DRIVE_TIME = 24;                                // Optimum drive time (ms) ≈ 0.5 × LRA Period | Drive time(ms) = DRIVE_TIME [4:0] × 0.1 ms + 0.5 ms
     DRV2605_UTIL::init(DRV2605_UTIL::m_auto_config);
 };
 void DRV2605_UTIL::init(DRV2605_Autocal_t auto_config)
 {
 
-    pinMode(m_trig_Right, OUTPUT);
-    // pinMode(_trig_Left, OUTPUT);
-    pinMode(m_en_Right, OUTPUT);
-    pinMode(m_en_Left, OUTPUT);
-
-    digitalWrite(m_trig_Right, LOW);
-    // digitalWrite(_trig_Left, LOW);
-    digitalWrite(m_en_Right, LOW);
-    digitalWrite(m_en_Left, LOW);
-
-    disable();
-
-    gaitGuide.onStimulation([](bool stimDirection)
-                            { DRV2605_UTIL::getInstance().stimulate(stimDirection); });
+    bool state_left = m_enable_state[0];
+    bool state_right = m_enable_state[1];
+    enable();
 
     const esp_timer_create_args_t stimulation_timer_args = {
         .callback = &stimulation_timer_callback,
@@ -173,8 +187,18 @@ void DRV2605_UTIL::init(DRV2605_Autocal_t auto_config)
       created to achieve the same feel, but the output will appear slightly different to account for differences in
       motor characteristics like startup time, acceleration, and brake time.*/
     Adafruit_DRV2605::selectLibrary(6);
+    uint8_t effect = DRV_EFF_ALERT_1000MS;
 
-    // TODO add weakup and sleep for device
+    Adafruit_DRV2605::setWaveform(0, effect);
+    Adafruit_DRV2605::setWaveform(1, 0);
+    if (!state_right)
+    {
+        disableRight();
+    }
+    if (!state_left)
+    {
+        disableLeft();
+    }
 }
 
 void DRV2605_UTIL::setTrigger(uint8_t Right, uint8_t Left)
@@ -205,56 +229,68 @@ void DRV2605_UTIL::stopLeft()
 {
     digitalWrite(m_trig_Left, LOW);
 }
-
-void DRV2605_UTIL::start()
+// TRIGGER BASED STIMULATIN IS CURRENTLY NOT POSSIBLE
+void DRV2605_UTIL::triggerStart()
 {
     digitalWrite(m_trig_Right, HIGH);
     digitalWrite(m_trig_Left, HIGH);
 }
-void DRV2605_UTIL::stop()
+// TRIGGER BASED STIMULATIN IS CURRENTLY NOT POSSIBLE
+void DRV2605_UTIL::triggerStop()
 {
     digitalWrite(m_trig_Right, LOW);
     digitalWrite(m_trig_Left, LOW);
 }
 
-void DRV2605_UTIL::setEnable(uint8_t Right, uint8_t Left)
+void DRV2605_UTIL::setEnablePins(uint8_t Pin_Right, uint8_t Pin_Left)
 {
-    m_en_Right = Right;
-    m_en_Left = Left;
+    m_en_Right = Pin_Right;
+    m_en_Left = Pin_Left;
 
     pinMode(m_en_Right, OUTPUT);
     pinMode(m_en_Left, OUTPUT);
 
     digitalWrite(m_en_Right, LOW);
     digitalWrite(m_en_Left, LOW);
+
+    m_enable_state[0] = false;
+    m_enable_state[1] = false;
 }
 
 void DRV2605_UTIL::enable()
 {
     digitalWrite(m_en_Right, HIGH);
     digitalWrite(m_en_Left, HIGH);
+    m_enable_state[0] = true;
+    m_enable_state[1] = true;
 }
 void DRV2605_UTIL::disable()
 {
     digitalWrite(m_en_Right, LOW);
     digitalWrite(m_en_Left, LOW);
+    m_enable_state[0] = false;
+    m_enable_state[1] = false;
 }
 
 void DRV2605_UTIL::enableRight()
 {
     digitalWrite(m_en_Right, HIGH);
+    m_enable_state[1] = true;
 }
 void DRV2605_UTIL::disableRight()
 {
     digitalWrite(m_en_Right, LOW);
+    m_enable_state[1] = false;
 }
 void DRV2605_UTIL::enableLeft()
 {
     digitalWrite(m_en_Left, HIGH);
+    m_enable_state[0] = true;
 }
 void DRV2605_UTIL::disableLeft()
 {
     digitalWrite(m_en_Left, LOW);
+    m_enable_state[0] = false;
 }
 
 bool DRV2605_UTIL::timescale()
@@ -270,20 +306,20 @@ void DRV2605_UTIL::timescale(bool is_timescale_1ms)
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_CONTROL5, 0x80 | (m_is_timescale_1ms << 4));
 }
 
-void DRV2605_UTIL::stimulate(bool stimDirection)
+void DRV2605_UTIL::stimulate(bool goLeft, bool goRight)
 {
     log_i("starting stimulation");
     switch (gaitGuide.stimMode())
     {
     case GAITGUIDE_USERMODE_AMPLITUDE:
     {
-        if (stimDirection)
-        {
-            enableRight();
-        }
-        else
+        if (goLeft)
         {
             enableLeft();
+        }
+        else if (goRight)
+        {
+            enableRight();
         }
         setRealtimeValue(gaitGuide.amp());
         ESP_ERROR_CHECK(esp_timer_start_once(stimulation_timer, gaitGuide.duration() * 1000)); // time in us
@@ -292,20 +328,15 @@ void DRV2605_UTIL::stimulate(bool stimDirection)
     }
     case GAITGUIDE_USERMODE_EFFECT:
     {
-        if (stimDirection)
+        if (goRight)
         {
             enableRight();
-            startRight();
         }
-        else
+        else if (goLeft)
         {
-
             enableLeft();
-            startLeft();
         }
-        delay(gaitGuide.duration());
-        stop();
-        disable();
+        ESP_ERROR_CHECK(esp_timer_start_once(stimulation_timer, gaitGuide.duration() * 1000)); // time in us
         //   ESP_LOGD(TAG_DRV, "Effect #%d: %s for %dms", gaitGuide.effect(0), drv_effect_string_map[gaitGuide.effect(0)], gaitGuide.duration());
         break;
     }
@@ -318,10 +349,9 @@ void DRV2605_UTIL::stimulate(bool stimDirection)
     {
         //** ROB MODE **/
 
-        enable();
         setMode(DRV2605_MODE_EXTTRIGLVL);
 
-        uint8_t effect = DRV_EFF_STRONG_BUZZ_100;
+        uint8_t effect = DRV_EFF_ALERT_1000MS;
         for (uint8_t i = 0; i < 8; i++)
         {
             setWaveform(i, effect);
@@ -356,10 +386,21 @@ void DRV2605_UTIL::stimulate(bool stimDirection)
 static void stimulation_timer_callback(void *arg)
 {
     DRV2605_UTIL &drv = DRV2605_UTIL::getInstance();
-    drv.setRealtimeValue(0x00);
+    GaitGuide &gaitGuide = GaitGuide::getInstance();
+    switch (gaitGuide.stimMode())
+    {
+    case GAITGUIDE_USERMODE_AMPLITUDE:
+        drv.setRealtimeValue(0x00);
+        break;
+    case GAITGUIDE_USERMODE_EFFECT:
+        drv.stop();
+        break;
+    default:
+        break;
+    }
+
     drv.disable();
 
-    GaitGuide &gaitGuide = GaitGuide::getInstance();
     gaitGuide.goLeft = false;
     gaitGuide.goRight = false;
     log_d("\n--------------STOPPED-------------------\n\n");

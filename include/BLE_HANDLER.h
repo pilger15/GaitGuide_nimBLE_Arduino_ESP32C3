@@ -19,12 +19,13 @@ typedef enum
     // DEVICE_INFO_SERVICE
     BLE_BATTERY_LEVEL_CHARACTERISTIC_UUID = 0x2A19,
     // BLE_TX_POWER_LEVEL_CHARACTERISTIC_UUID = 0x2A07,
-    //  BLE_FIRMWARE_REVISION_CHARACTERISTIC_UUID = 0x2A26,
+    BLE_FIRMWARE_REVISION_CHARACTERISTIC_UUID = 0x2A26,
 
     // DEVICE_CONTROL_SERVICE
     BLE_AMPLITUDE_CHARACTERISTIC_UUID = 0x1112,
-    BLE_DURATION_RIGHT_CHARACTERISTIC_UUID = 0x1113,
-    BLE_DURATION_LEFT_CHARACTERISTIC_UUID = 0x1114,
+
+    BLE_DURATION_LEFT_CHARACTERISTIC_UUID = 0x1113,
+    BLE_DURATION_RIGHT_CHARACTERISTIC_UUID = 0x1114,
     /*
         BLE_PRESSURE_CHARACTERISTIC_UUID = 0x2225 // warning this is not implemented correctly
            BLE_LAT_CONNECTED_CHARACTERISTIC_UUID = 0x1112,
@@ -99,7 +100,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
             ESP_LOGD(TAG_BLE, "[%s] Amplitude set to %d", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue()[0]);
             if (gaitGuide.goLeft || gaitGuide.goRight)
             {
-                ESP_LOGD(TAG_DRV, "COMMAND IGNORED: Device still running");
+                ESP_LOGD("", "COMMAND IGNORED: Device still running");
             }
             else
             {
@@ -113,11 +114,12 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
 
             if (gaitGuide.goLeft || gaitGuide.goRight)
             {
-                ESP_LOGD(TAG_DRV, "COMMAND IGNORED: Device still running");
+                ESP_LOGD("", "COMMAND IGNORED: Device still running");
             }
             else
             {
-                gaitGuide.setDuration(pCharacteristic->getValue().data()[0], drv_right);
+                uint16_t duration = ((uint16_t)pCharacteristic->getValue().data()[1] << 8 | pCharacteristic->getValue().data()[0]);
+                gaitGuide.setDuration(duration, drv_right);
             }
 
             break;
@@ -126,11 +128,12 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
 
             if (gaitGuide.goLeft || gaitGuide.goRight)
             {
-                ESP_LOGD(TAG_DRV, "COMMAND IGNORED: Device still running");
+                ESP_LOGD("", "COMMAND IGNORED: Device still running");
             }
             else
             {
-                gaitGuide.setDuration(pCharacteristic->getValue().data()[0], drv_left);
+                uint16_t duration = ((uint16_t)pCharacteristic->getValue().data()[1] << 8 | pCharacteristic->getValue().data()[0]);
+                gaitGuide.setDuration(duration, drv_left);
             }
 
             break;

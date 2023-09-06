@@ -38,18 +38,18 @@ void ble_setup(const std::string &deviceName)
                                                                                       NIMBLE_PROPERTY::WRITE,
                                                                                   //  NIMBLE_PROPERTY::READ_ENC |
                                                                                   //  NIMBLE_PROPERTY::WRITE_ENC,
-                                                                                  1);
+                                                                                  2);
     BLE_Duration_MED->setCallbacks(&chrCallbacks);
-    BLE_Duration_MED->setValue((uint8_t)0x00);
+    BLE_Duration_MED->setValue((uint16_t)0x0000);
 
     NimBLECharacteristic *BLE_Duration_LAT = controlService->createCharacteristic((uint16_t)BLE_DURATION_LEFT_CHARACTERISTIC_UUID,
                                                                                   NIMBLE_PROPERTY::READ |
                                                                                       NIMBLE_PROPERTY::WRITE,
                                                                                   //  NIMBLE_PROPERTY::READ_ENC |
                                                                                   //  NIMBLE_PROPERTY::WRITE_ENC,
-                                                                                  1);
+                                                                                  2);
     BLE_Duration_LAT->setCallbacks(&chrCallbacks);
-    BLE_Duration_LAT->setValue((uint8_t)0x00);
+    BLE_Duration_LAT->setValue((uint16_t)0x0000);
 
     /*
       READ         =  BLE_GATT_CHR_F_READ,

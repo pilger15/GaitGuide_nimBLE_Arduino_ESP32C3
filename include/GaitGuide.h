@@ -61,9 +61,9 @@ public:
     void timescale(bool is_timescale_5ms);
 
     void setAmplitude(const uint8_t data);
-    void setDuration(const uint8_t data, bool driver_side);
+    void setDuration(const uint16_t data, bool driver_side);
 
-    uint8_t duration(const uint8_t pos = 0)
+    uint16_t duration(const uint8_t pos = 0)
     {
         return m_duration[pos];
     }
@@ -80,18 +80,13 @@ public:
 
     // callbacks
     typedef std::function<void(bool)> StimulationCallback;
-    // Set up a callback function to be called when m_currentPressure is changed
-    void onStimulation(const StimulationCallback &callback)
-    {
-        m_stimulationCallback = callback;
-    }
 
 private:
     GaitGuide();
     GaitGuide(const GaitGuide &) = delete;
     GaitGuide &operator=(const GaitGuide &) = delete;
     uint8_t _deviceId;
-    std::string _firmwareVersion;
+    std::string _firmwareVersion = "1";
 
     void initialiseNVS()
     {
@@ -108,8 +103,8 @@ private:
     };
 
     uint8_t m_amplitude[8] = {0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t m_duration[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t m_effects[8] = {14, 14, 14, 14, 14, 14, 14, 14}; // effect strong buzz
+    uint16_t m_duration[8] = {0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000};
+    uint8_t m_effects[8] = {0x0010, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // effect 1000ms Alert
     uint8_t m_error = 0;
 
     uint8_t m_batteryLevel = 0;
@@ -122,9 +117,6 @@ private:
     gaitGuide_stimMode_t _stimMode = gaitGuide_stimMode_t::GAITGUIDE_USERMODE_AMPLITUDE;
 
     const char *m_nvs_namespace = "gaitguide_NVS";
-
-    // callbacks
-    StimulationCallback m_stimulationCallback;
 };
 
 #endif

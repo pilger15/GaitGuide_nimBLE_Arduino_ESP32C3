@@ -8,7 +8,6 @@ The defines and lists have been mostly generated using ChatGPT
 #include <DRV2605_EFFECTS.h>
 #include <GaitGuide.h>
 #include "esp_timer.h"
-
 /*
 	"#1: Strong Click - 100%",
 	"#2: Strong Click - 60%",
@@ -190,7 +189,6 @@ public:
 	static DRV2605_UTIL &getInstance();
 	GaitGuide &gaitGuide = GaitGuide::getInstance();
 
-	void initialise();
 	void enable(bool Right, bool Left);
 
 	void set_ratedVoltage(uint8_t ratedVoltage);
@@ -209,10 +207,10 @@ public:
 	void startLeft();
 	void stopLeft();
 
-	void start();
-	void stop();
+	void triggerStart();
+	void triggerStop();
 
-	void setEnable(uint8_t Right, uint8_t Left);
+	void setEnablePins(uint8_t Right, uint8_t Left);
 	void enable();
 	void disable();
 	void enableRight();
@@ -224,7 +222,7 @@ public:
 	bool timescale();
 	void timescale(bool is_timescale_1ms);
 
-	void stimulate(bool stimDirection);
+	void stimulate(bool goLeft, bool goRight);
 
 private:
 	DRV2605_UTIL(void);
@@ -235,11 +233,14 @@ private:
 
 	esp_timer_handle_t stimulation_timer;
 
-	uint8_t m_trig_Right = D3;
-	uint8_t m_trig_Left = D4;
+	uint8_t m_trig_Right = D0;
+	uint8_t m_trig_Left = D1;
 
-	uint8_t m_en_Right = D2;
-	uint8_t m_en_Left = D1;
+	uint8_t m_en_Right = D3;
+	uint8_t m_en_Left = D2;
+
+	// enabled {left, right}
+	bool m_enable_state[2] = {false, false};
 
 	bool m_is_timescale_1ms = false;
 };

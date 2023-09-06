@@ -99,9 +99,8 @@ void GaitGuide::setAmplitude(const uint8_t data)
     */
     // m_duration[0] = data[0];
 }
-void GaitGuide::setDuration(const uint8_t data, bool driver_side)
+void GaitGuide::setDuration(const uint16_t data, bool driver_side)
 {
-
     m_duration[0] = data;
     if (driver_side == drv_right)
     {
@@ -112,10 +111,5 @@ void GaitGuide::setDuration(const uint8_t data, bool driver_side)
     {
         goLeft = true;
         goRight = false;
-    }
-
-    if (m_stimulationCallback)
-    {
-        m_stimulationCallback(driver_side);
     }
 }
