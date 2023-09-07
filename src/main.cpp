@@ -40,26 +40,26 @@
 
 // USE_GAITGUIDE
 
-#define LED_RED D6
-
 // #define USE_GAITGUIDE TRUE // comment if using the testbench setup
 
 #ifdef USE_GAITGUIDE
+#define LED_RED D1
 #define I2C_SDA D4
 #define I2C_SCL D5
 #define I2C_FREQ 20000UL // 500000UL
-#define TRIGGER_Right D0
+#define TRIGGER_Right D0 // deprecated used for stimulation
 #define TRIGGER_Left D1
 #define ENABLE_Right D3
 #define ENABLE_Left D2
 #else
-#define I2C_SDA D2            // D4
-#define I2C_SCL D3            // D5
-#define I2C_FREQ 20000UL      // 500000UL
-#define TRIGGER_Right LED_RED // D0
-#define TRIGGER_Left LED_RED  // D1
-#define ENABLE_Right D5       // D3
-#define ENABLE_Left D5        // D2
+#define LED_RED D6
+#define I2C_SDA D2       // D4
+#define I2C_SCL D3       // D5
+#define I2C_FREQ 20000UL // 500000UL
+#define TRIGGER_Right D1 // D0
+#define TRIGGER_Left D1  // D1
+#define ENABLE_Right D5  // D3
+#define ENABLE_Left D5   // D2
 #endif
 
 #define SPI_CS_Left D10                  // D7
@@ -102,7 +102,7 @@ uint8_t usb_buffer_rx[USB_BUFFER_RX];
 
 bool is_timescale_1ms = false;
 
-unsigned long time_us = 0;
+volatile unsigned long recording_timestamp_us = 0;
 
 static const std::string deviceName = "GaitGuide";
 
@@ -131,7 +131,7 @@ uint8_t rtp_amp = 0x00;
 
 uint16_t targetLED = 1400;
 
-bool streaming = false;
+bool is_recording = false;
 auto &drv = DRV2605_UTIL::getInstance();
 auto &gaitGuide = GaitGuide::getInstance();
 gaitGuide_stimMode_t stimMode = gaitGuide.stimMode();
@@ -159,6 +159,8 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
         'D',
         'A',
         'T'};
+    char timestamp_header[8] = {'A', 'C', 'C', '_', 'T', 'I', 'M', 'E'};
+
     int send0 = 0, send1 = 0;
 
     spi_transaction_t *trans_result;
@@ -178,13 +180,13 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
     iis3dwb_fifo_status_t status0, status1;
     uint16_t num_words0 = 0,
              num_words1 = 0;
-
+    recording_timestamp_us = micros();
     iis3dwb_fifo_mode_set(&acc_Left, IIS3DWB_STREAM_MODE);
     iis3dwb_fifo_mode_set(&acc_Right, IIS3DWB_STREAM_MODE);
     vTaskDelay(pdMS_TO_TICKS(6));
     // for future reference - queue tansacion and read out last queue  to allow simulaion request in the middle
 
-    while (streaming)
+    while (is_recording)
     {
 
         if (iis3dwb_who_am_i(&acc_Right) == IIS3DWB_WHO_AM_I_EXPECTED)
@@ -295,16 +297,16 @@ void usbTask(void *pvParameters)
         if (usb_serial_jtag_read_bytes(usb_buffer_rx, USB_BUFFER_RX, 1 / portTICK_PERIOD_MS))
         {
 
-            if (!streaming)
+            if (!is_recording)
             {
 
-                streaming = true;
+                is_recording = true;
                 xTaskCreate(get_acc_fifo_task, "ACC TASK", 2048 * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
                 digitalWrite(LED_RED, LOW);
             }
             else
             {
-                streaming = false;
+                is_recording = false;
             }
         }
         taskYIELD();
@@ -313,12 +315,33 @@ void usbTask(void *pvParameters)
 }
 void stimTask(void *pvParameters)
 {
+    unsigned long stim_timestamp_us = 0;
+    char stim_time_header[8] = {'S', 'T', 'I', 'M', 'T', 'I', 'M', 'E'};
     while (1)
     {
         if (gaitGuide.goLeft || gaitGuide.goRight)
         {
+            if (is_recording)
+            {
+                stim_timestamp_us = micros() - recording_timestamp_us;
+#ifndef USE_GAITGUIDE // measure-JIG
+                pinMode(TRIGGER_Right, OUTPUT);
+                digitalWrite(TRIGGER_Right, HIGH);
+#endif // USE_GAITGUIDE
+            }
+
             drv.stimulate(gaitGuide.goLeft, gaitGuide.goRight);
             vTaskDelay(pdTICKS_TO_MS(gaitGuide.duration() + 10)); // wait for stimulation to end + a few extra milliseconds
+
+            if (is_recording)
+            {
+#ifndef USE_GAITGUIDE // measure-JIG
+                pinMode(TRIGGER_Right, OUTPUT);
+                digitalWrite(TRIGGER_Right, LOW);
+#endif // USE_GAITGUIDE
+                usb_serial_jtag_write_bytes(stim_time_header, sizeof(stim_time_header), pdMS_TO_TICKS(1));
+                usb_serial_jtag_write_bytes(&stim_timestamp_us, sizeof(long), pdMS_TO_TICKS(1));
+            }
         }
 
         taskYIELD();
@@ -346,6 +369,12 @@ void setup()
 
     pinMode(LED_RED, OUTPUT);
     digitalWrite(LED_RED, LOW);
+
+#ifndef USE_GAITGUIDE // measure-JIG
+    pinMode(TRIGGER_Right, OUTPUT);
+    digitalWrite(TRIGGER_Right, LOW);
+#endif // USE_GAITGUIDE
+
     led_breath();
     xTaskCreate(usbTask, "USB_TASK", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
 
