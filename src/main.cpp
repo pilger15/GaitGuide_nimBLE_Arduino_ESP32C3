@@ -38,21 +38,36 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define I2C_SDA D2       // D4
-#define I2C_SCL D3       // D5
-#define I2C_FREQ 20000UL // 500000UL
-#define TRIGGER_Right D6 // D0
-#define TRIGGER_Left D6  // D1
-#define ENABLE_Right D5  // D3
-#define ENABLE_Left D5   // D2
-// TwoWire I2C = TwoWire(0);
+// USE_GAITGUIDE
 
-#define SPI_CS_Left D7
-#define SPI_CS_Right D6
-#define SPI_CLK D8
-#define SPI_MISO D10
-#define SPI_MOSI D9
-#define SPI_FREQUENCY (20 * 1000 * 1000) // 10 Mhz max -> may need to be reduced if so check tCS->CLK
+#define LED_RED D6
+
+// #define USE_GAITGUIDE TRUE // comment if using the testbench setup
+
+#ifdef USE_GAITGUIDE
+#define I2C_SDA D4
+#define I2C_SCL D5
+#define I2C_FREQ 20000UL // 500000UL
+#define TRIGGER_Right D0
+#define TRIGGER_Left D1
+#define ENABLE_Right D3
+#define ENABLE_Left D2
+#else
+#define I2C_SDA D2            // D4
+#define I2C_SCL D3            // D5
+#define I2C_FREQ 20000UL      // 500000UL
+#define TRIGGER_Right LED_RED // D0
+#define TRIGGER_Left LED_RED  // D1
+#define ENABLE_Right D5       // D3
+#define ENABLE_Left D5        // D2
+#endif
+
+#define SPI_CS_Left D10                  // D7
+#define SPI_CS_Right D4                  // LED_RED
+#define SPI_CLK D9                       // D8
+#define SPI_MISO D7                      // D10
+#define SPI_MOSI D8                      // D9
+#define SPI_FREQUENCY (20 * 1000 * 1000) // may need to be reduced if so check tCS->CLK
 
 #define ACC_WORD 7
 #define ACC_BUFFER_WORDS 512
@@ -181,7 +196,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             if (status0.fifo_status.status2.status2.fifo_ovr_ia)
             {
                 log_e("\n\e[1;31mFIFO Right OVERRUN\e[0;38m\n");
-                digitalWrite(D6, HIGH);
+                digitalWrite(LED_RED, HIGH);
             }
             //(uint16_t)(status0.fifo_status.status2.status2.diff_fifo << 8) | status0.fifo_status.status1.fifo_status1.diff_fifo;
             // iis3dwb_fifo_batch_get(&acc_Right, num_words0);
@@ -190,7 +205,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
         else
         {
             log_e("Device %d was not found", acc_Right.IDx);
-            digitalWrite(D6, HIGH);
+            digitalWrite(LED_RED, HIGH);
         }
 
         if (iis3dwb_who_am_i(&acc_Left) == IIS3DWB_WHO_AM_I_EXPECTED)
@@ -201,13 +216,13 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             if (status1.fifo_status.status2.status2.fifo_ovr_ia)
             {
                 log_e("\n\e[1;31mFIFO Left OVERRUN\e[0;38m\n");
-                digitalWrite(D6, HIGH);
+                digitalWrite(LED_RED, HIGH);
             }
         }
         else
         {
             log_e("Device %d was not found", acc_Left.IDx);
-            digitalWrite(D6, HIGH);
+            digitalWrite(LED_RED, HIGH);
         }
 
         if (num_words0)
@@ -277,14 +292,15 @@ void usbTask(void *pvParameters)
 {
     while (1)
     {
-
         if (usb_serial_jtag_read_bytes(usb_buffer_rx, USB_BUFFER_RX, 1 / portTICK_PERIOD_MS))
         {
+
             if (!streaming)
             {
 
                 streaming = true;
-                xTaskCreate(get_acc_fifo_task, "ACC TASK", 2048 * 4, NULL, 2, NULL);
+                xTaskCreate(get_acc_fifo_task, "ACC TASK", 2048 * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
+                digitalWrite(LED_RED, LOW);
             }
             else
             {
@@ -318,7 +334,6 @@ void setup()
     drv.setEnablePins(ENABLE_Right, ENABLE_Left);
     drv.begin(&Wire);
     drv.enable();
-    drv.registerDefault();
     drv.init();
 
     drv.disable();
@@ -329,7 +344,8 @@ void setup()
 
     accelerometer_setup();
 
-    pinMode(D6, OUTPUT);
+    pinMode(LED_RED, OUTPUT);
+    digitalWrite(LED_RED, LOW);
     led_breath();
     xTaskCreate(usbTask, "USB_TASK", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
 
@@ -338,7 +354,7 @@ void setup()
         "TaskRunnerTask",
         configMINIMAL_STACK_SIZE * 4,
         NULL, // Pass the 'this' pointer to the task as the task parameter
-        tskIDLE_PRIORITY + 10,
+        tskIDLE_PRIORITY + 1,
         NULL);
     log_i("Initialisation Complete");
 }

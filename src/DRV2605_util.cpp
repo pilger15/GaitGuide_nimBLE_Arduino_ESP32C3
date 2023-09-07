@@ -96,7 +96,7 @@ void DRV2605_UTIL::registerDefault()
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_CLAMPV, DRV_LRA_OD_CLAMP_2_05V);
     // Set the closed-loop input to unidirectional
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_CONTROL1,
-                                     (DRV_STARTUP_BOOST_ON << 7) | (DRV_AC_COUPLE_DC << 5) | DRV_DRIVE_TIME_19);
+                                     (DRV_STARTUP_BOOST_ON << 7) | (DRV_AC_COUPLE_DC << 5) | m_auto_config.DRIVE_TIME);
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_CONTROL2,
                                      (DRV_BIDIR_INPUT_UNI << 7) | (DRV_BRAKE_STABILIZER_ON << 6) | (DRV_SAMPLE_TIME_300US << 4) | (DRV_BLANKING_TIME_25_75US << 2) | (DRV_IDISS_TIME_25_75US));
     // set the RTP input to unsigned
@@ -159,27 +159,28 @@ void DRV2605_UTIL::init(DRV2605_Autocal_t auto_config)
     ESP_ERROR_CHECK(esp_timer_create(&stimulation_timer_args, &stimulation_timer));
 
     // Adafruit_DRV2605::begin();
-    bool is_calibrated = false; // #TODO use flash memory and or "Calibration pin"
+    DRV2605_UTIL::registerDefault();
+    DRV2605_UTIL::autoCalibrate();
+    bool is_open_loop = false; // #TODO use flash memory and or "Calibration pin"
 
-    if (is_calibrated)
+    if (is_open_loop)
     {
-        // # TODO: Read Flash calibration results
+        Adafruit_DRV2605::setRealtimeValue(0x00);
+        Adafruit_DRV2605::writeRegister8(0x20,        // LRA Open Loop Period Register - LRA open-loop period (μs) = OL_LRA_PERIOD[6:0] × 98.46 μs
+                                         (int8_t)54); // T = 5700 μs => 5700 μs / 98.46 μs = 58.0366 μs
+
+        Adafruit_DRV2605::writeRegister8(DRV2605_REG_CONTROL3,
+                                         (DRV_NG_THRESH_4PER << 6) | (DRV_ERM_OPEN_LOOP << 5) | (DRV_SUPPLY_COMP_DIS_ON << 4) | (DRV_DATA_FORMAT_RTP_SIGNED << 3) | (DRV_LRA_DRIVE_MODE_ONCE << 2) | (DRV_NPWM_ANALOG_PWM << 1) | (DRV_LRA_OPEN_LOOP));
     }
     else
     {
-
-        DRV2605_UTIL::autoCalibrate();
     }
 
-    // initialise the device
-    // Write the MODE register (address 0x01) to value 0x00 to remove the device from standby mode.
+    //   initialise the device
+    //   Write the MODE register (address 0x01) to value 0x00 to remove the device from standby mode.
     uint8_t drv_modeSelect = DRV2605_MODE_REALTIME; // DRV2605_MODE_REALTIME;
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_MODE,
                                      (DRV_DEV_RESET_OFF << 7) | (DRV_STANDBY_READY << 6) | (drv_modeSelect));
-    // DRV2605_UTIL::useLRA();
-    Adafruit_DRV2605::writeRegister8(DRV2605_REG_FEEDBACK,
-                                     (DRV_LRA << 7) | (DRV_FB_BRAKE_FACTOR_4X << 4) | (DRV_LOOP_GAIN_MEDIUM << 2) | DRV_BEMF_GAIN_1_365X_15X);
-
     // 6. If using the embedded ROM library, write the library selection register (address 0x03) to select a library.
     /*There are six ROM libraries in the DRV2605 and each contains 123 effects. Libraries 1–5 are for ERM
       motors and were designed to support various ERM motor types and characteristics. Library 6 is the LRA
@@ -188,7 +189,6 @@ void DRV2605_UTIL::init(DRV2605_Autocal_t auto_config)
       motor characteristics like startup time, acceleration, and brake time.*/
     Adafruit_DRV2605::selectLibrary(6);
     uint8_t effect = DRV_EFF_ALERT_1000MS;
-
     Adafruit_DRV2605::setWaveform(0, effect);
     Adafruit_DRV2605::setWaveform(1, 0);
     if (!state_right)
