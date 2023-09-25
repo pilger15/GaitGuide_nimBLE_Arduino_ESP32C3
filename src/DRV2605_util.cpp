@@ -167,7 +167,7 @@ void DRV2605_UTIL::init(DRV2605_Autocal_t auto_config)
     {
         Adafruit_DRV2605::setRealtimeValue(0x00);
         Adafruit_DRV2605::writeRegister8(0x20,        // LRA Open Loop Period Register - LRA open-loop period (μs) = OL_LRA_PERIOD[6:0] × 98.46 μs
-                                         (int8_t)54); // T = 5700 μs => 5700 μs / 98.46 μs = 58.0366 μs
+                                         (int8_t)54); // T = 5700 μs => 5700 μs / 98.46 μs = 58.0366
 
         Adafruit_DRV2605::writeRegister8(DRV2605_REG_CONTROL3,
                                          (DRV_NG_THRESH_4PER << 6) | (DRV_ERM_OPEN_LOOP << 5) | (DRV_SUPPLY_COMP_DIS_ON << 4) | (DRV_DATA_FORMAT_RTP_SIGNED << 3) | (DRV_LRA_DRIVE_MODE_ONCE << 2) | (DRV_NPWM_ANALOG_PWM << 1) | (DRV_LRA_OPEN_LOOP));
@@ -308,7 +308,7 @@ void DRV2605_UTIL::timescale(bool is_timescale_1ms)
 
 void DRV2605_UTIL::stimulate(bool goLeft, bool goRight)
 {
-    log_i("starting stimulation");
+    // log_i("starting stimulation");
     switch (gaitGuide.stimMode())
     {
     case GAITGUIDE_USERMODE_AMPLITUDE:
@@ -317,7 +317,7 @@ void DRV2605_UTIL::stimulate(bool goLeft, bool goRight)
         {
             enableLeft();
         }
-        else if (goRight)
+        else // if (goRight)
         {
             enableRight();
         }

@@ -38,20 +38,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-// USE_GAITGUIDE
+// USE_TESTBENCH
 
-// #define USE_GAITGUIDE TRUE // comment if using the testbench setup
+// #define USE_TESTBENCH TRUE // comment if using the testbench setup
 
-#ifdef USE_GAITGUIDE
-#define LED_RED D1
-#define I2C_SDA D4
-#define I2C_SCL D5
-#define I2C_FREQ 20000UL // 500000UL
-#define TRIGGER_Right D0 // deprecated used for stimulation
-#define TRIGGER_Left D1
-#define ENABLE_Right D3
-#define ENABLE_Left D2
-#else
+#ifdef USE_TESTBENCH
 #define LED_RED D6
 #define I2C_SDA D2       // D4
 #define I2C_SCL D3       // D5
@@ -60,13 +51,29 @@
 #define TRIGGER_Left D1  // D1
 #define ENABLE_Right D5  // D3
 #define ENABLE_Left D5   // D2
+
+#define SPI_CS_Left D10 // D7
+#define SPI_CS_Right D4 // LED_RED
+#define SPI_CLK D9      // D8
+#define SPI_MISO D7     // D10
+#define SPI_MOSI D8     // D9
+#else
+#define LED_RED D1
+#define I2C_SDA D4
+#define I2C_SCL D5
+#define I2C_FREQ 20000UL // 500000UL
+
+#define ENABLE_Right D3
+#define ENABLE_Left D2
+
+#define SPI_CS_Left D7
+#define SPI_CS_Right D6
+#define SPI_CLK D8
+#define SPI_MISO D10
+#define SPI_MOSI D9
+
 #endif
 
-#define SPI_CS_Left D10                  // D7
-#define SPI_CS_Right D4                  // LED_RED
-#define SPI_CLK D9                       // D8
-#define SPI_MISO D7                      // D10
-#define SPI_MOSI D8                      // D9
 #define SPI_FREQUENCY (20 * 1000 * 1000) // may need to be reduced if so check tCS->CLK
 
 #define ACC_WORD 7
@@ -324,10 +331,10 @@ void stimTask(void *pvParameters)
             if (is_recording)
             {
                 stim_timestamp_us = micros() - recording_timestamp_us;
-#ifndef USE_GAITGUIDE // measure-JIG
+#ifdef USE_TESTBENCH // measure-JIG
                 pinMode(TRIGGER_Right, OUTPUT);
                 digitalWrite(TRIGGER_Right, HIGH);
-#endif // USE_GAITGUIDE
+#endif // USE_TESTBENCH
             }
 
             drv.stimulate(gaitGuide.goLeft, gaitGuide.goRight);
@@ -335,10 +342,10 @@ void stimTask(void *pvParameters)
 
             if (is_recording)
             {
-#ifndef USE_GAITGUIDE // measure-JIG
+#ifdef USE_TESTBENCH // measure-JIG
                 pinMode(TRIGGER_Right, OUTPUT);
                 digitalWrite(TRIGGER_Right, LOW);
-#endif // USE_GAITGUIDE
+#endif // USE_TESTBENCH
                 usb_serial_jtag_write_bytes(stim_time_header, sizeof(stim_time_header), pdMS_TO_TICKS(1));
                 usb_serial_jtag_write_bytes(&stim_timestamp_us, sizeof(long), pdMS_TO_TICKS(1));
             }
@@ -370,10 +377,10 @@ void setup()
     pinMode(LED_RED, OUTPUT);
     digitalWrite(LED_RED, LOW);
 
-#ifndef USE_GAITGUIDE // measure-JIG
+#ifdef USE_TESTBENCH // measure-JIG
     pinMode(TRIGGER_Right, OUTPUT);
     digitalWrite(TRIGGER_Right, LOW);
-#endif // USE_GAITGUIDE
+#endif // USE_TESTBENCH
 
     led_breath();
     xTaskCreate(usbTask, "USB_TASK", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
