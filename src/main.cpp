@@ -40,9 +40,10 @@
 
 // USE_TESTBENCH
 
-// #define USE_TESTBENCH TRUE // comment if using the testbench setup
+// #define USE_TESTBENCH // comment if using the testbench setup
 
 #ifdef USE_TESTBENCH
+// TESTBENCH SETUP
 #define LED_RED D6
 #define I2C_SDA D2       // D4
 #define I2C_SCL D3       // D5
@@ -57,7 +58,9 @@
 #define SPI_CLK D9      // D8
 #define SPI_MISO D7     // D10
 #define SPI_MOSI D8     // D9
+
 #else
+// REGULAR GAITGUIDE
 #define LED_RED D1
 #define I2C_SDA D4
 #define I2C_SCL D5

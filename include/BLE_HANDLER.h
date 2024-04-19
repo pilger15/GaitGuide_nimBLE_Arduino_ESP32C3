@@ -110,7 +110,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
             break;
 
         case BLE_DURATION_RIGHT_CHARACTERISTIC_UUID:
-            ESP_LOGD(TAG_BLE, "[%s] Started MED: %dms", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue()[0]);
+            ESP_LOGD(TAG_BLE, "[%s] Command RIGHT: %dms", pCharacteristic->getUUID().toString().c_str(), ((uint16_t)pCharacteristic->getValue().data()[1] << 8 | pCharacteristic->getValue().data()[0]));
 
             if (gaitGuide.goLeft || gaitGuide.goRight)
             {
@@ -124,7 +124,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
 
             break;
         case BLE_DURATION_LEFT_CHARACTERISTIC_UUID:
-            ESP_LOGD(TAG_BLE, "[%s] Started LAT: %dms", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue()[0]);
+            ESP_LOGD(TAG_BLE, "[%s] Command LEFT: %dms", pCharacteristic->getUUID().toString().c_str(), ((uint16_t)pCharacteristic->getValue().data()[1] << 8 | pCharacteristic->getValue().data()[0]));
 
             if (gaitGuide.goLeft || gaitGuide.goRight)
             {

@@ -1,8 +1,10 @@
 import asyncio
 from bleak import BleakScanner, BleakClient
 import time
+import struct
 
 BLE_DURATION_STIM_SERVICE_UUID = '1111'
+BLE_AMPLITUDE_CHARACTERISTIC_UUID = '1112'  # these need to be chaned at some point for BLE specificatin reasons '48e47602-1b27-11ee-be56-0242ac120002'
 BLE_DURATION_RIGHT_CHARACTERISTIC_UUID = '1113'  # these need to be chaned at some point for BLE specificatin reasons '48e47602-1b27-11ee-be56-0242ac120002'
 BLE_DURATION_LEFT_CHARACTERISTIC_UUID = '1114'  # '63bae092-1b27-11ee-be56-0242ac120002'
 
@@ -23,7 +25,13 @@ async def get_characteristic(service, characteristic_uuid):
     return characteristic
 
 async def write_characteristic(client, characteristic, value):
-    await client.write_gatt_char(characteristic, bytearray([value]))
+    value_bytes = struct.pack('<H', value)
+    await client.write_gatt_char(characteristic, value_bytes)
+
+
+async def set_amp(client, characteristic, value):
+    await client.write_gatt_char(characteristic,  bytearray([value]))
+
 
 async def run():
     
@@ -34,7 +42,9 @@ async def run():
     if service:
         Right = await get_characteristic(service, BLE_DURATION_RIGHT_CHARACTERISTIC_UUID)
         Left = await get_characteristic(service, BLE_DURATION_LEFT_CHARACTERISTIC_UUID)
+        Ampl = await get_characteristic(service, BLE_AMPLITUDE_CHARACTERISTIC_UUID)
 
+    await set_amp(GaitGuide, Ampl, 127)
     count = 0
     while (GaitGuide.is_connected and count < 11):
         await write_characteristic(GaitGuide, Right, 120)

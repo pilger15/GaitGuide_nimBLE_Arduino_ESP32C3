@@ -38,6 +38,15 @@ void DRV2605_UTIL::set_odClamp(uint8_t odClamp)
     bool state_right = m_enable_state[1];
     enable();
     Adafruit_DRV2605::writeRegister8(DRV2605_REG_CLAMPV, odClamp);
+
+    if (!state_right)
+    {
+        disableRight();
+    }
+    if (!state_left)
+    {
+        disableLeft();
+    }
 }
 void DRV2605_UTIL::autoCalibrate()
 {
@@ -161,13 +170,13 @@ void DRV2605_UTIL::init(DRV2605_Autocal_t auto_config)
     // Adafruit_DRV2605::begin();
     DRV2605_UTIL::registerDefault();
     DRV2605_UTIL::autoCalibrate();
-    bool is_open_loop = false; // #TODO use flash memory and or "Calibration pin"
+    bool is_open_loop = true; // #TODO use flash memory and or "Calibration pin"
 
     if (is_open_loop)
     {
         Adafruit_DRV2605::setRealtimeValue(0x00);
         Adafruit_DRV2605::writeRegister8(0x20,        // LRA Open Loop Period Register - LRA open-loop period (μs) = OL_LRA_PERIOD[6:0] × 98.46 μs
-                                         (int8_t)54); // T = 5700 μs => 5700 μs / 98.46 μs = 58.0366
+                                         (int8_t)58); // ~175Hz = T = 5700 μs => 5700 μs / 98.46 μs = 58.0366 || ~185Hz = 54
 
         Adafruit_DRV2605::writeRegister8(DRV2605_REG_CONTROL3,
                                          (DRV_NG_THRESH_4PER << 6) | (DRV_ERM_OPEN_LOOP << 5) | (DRV_SUPPLY_COMP_DIS_ON << 4) | (DRV_DATA_FORMAT_RTP_SIGNED << 3) | (DRV_LRA_DRIVE_MODE_ONCE << 2) | (DRV_NPWM_ANALOG_PWM << 1) | (DRV_LRA_OPEN_LOOP));
@@ -191,6 +200,7 @@ void DRV2605_UTIL::init(DRV2605_Autocal_t auto_config)
     uint8_t effect = DRV_EFF_ALERT_1000MS;
     Adafruit_DRV2605::setWaveform(0, effect);
     Adafruit_DRV2605::setWaveform(1, 0);
+    Adafruit_DRV2605::setRealtimeValue(0x00);
     if (!state_right)
     {
         disableRight();
@@ -309,6 +319,7 @@ void DRV2605_UTIL::timescale(bool is_timescale_1ms)
 void DRV2605_UTIL::stimulate(bool goLeft, bool goRight)
 {
     // log_i("starting stimulation");
+
     switch (gaitGuide.stimMode())
     {
     case GAITGUIDE_USERMODE_AMPLITUDE:
