@@ -5,7 +5,8 @@
  * Since there are multiple drivers present for each side (Right, Left, two each)
  * and all devices have the same address, the bus can not be used  for reading actions.
  *
- * To control Left and Right derivers independently, the external trigger level is used.
+ *
+ *
  *
  *  Created: 2023
  *      Author: JMartus
@@ -14,10 +15,11 @@
 /*
 
 */
-
-#include "Adafruit_DRV2605.h"
 #include <Arduino.h>
 #include "esp_system.h"
+
+#include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h>
+#include "Adafruit_DRV2605.h"
 
 #include "NimBLEDevice.h"
 #include <SPI.h>
@@ -76,6 +78,8 @@
 #define SPI_MOSI D9
 
 #endif
+
+SFE_MAX1704X lipo(MAX1704X_MAX17048); // Create a MAX17048
 
 #define SPI_FREQUENCY (20 * 1000 * 1000) // may need to be reduced if so check tCS->CLK
 
@@ -194,7 +198,7 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
     iis3dwb_fifo_mode_set(&acc_Left, IIS3DWB_STREAM_MODE);
     iis3dwb_fifo_mode_set(&acc_Right, IIS3DWB_STREAM_MODE);
     vTaskDelay(pdMS_TO_TICKS(6));
-    // for future reference - queue tansacion and read out last queue  to allow simulaion request in the middle
+    // for future reference - queue transacion and read out last queue  to allow stimulation request in the middle
 
     while (is_recording)
     {
@@ -267,7 +271,6 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             usb_serial_jtag_write_bytes(&num_words0, 2, pdMS_TO_TICKS(1));
 
             send0 = usb_serial_jtag_write_bytes(&sendUSB, num_words0 * sizeof(uint16_t), pdMS_TO_TICKS(1));
-            // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
         }
         if (num_words1)
         {
@@ -283,7 +286,6 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
             usb_serial_jtag_write_bytes(&num_words1, 2, pdMS_TO_TICKS(1));
 
             send1 = usb_serial_jtag_write_bytes(&sendUSB, num_words1 * sizeof(uint16_t), pdMS_TO_TICKS(1));
-            // usb_serial_jtag_write_bytes(&terminator, 1, pdMS_TO_TICKS(1));
         }
 
         taskYIELD();
@@ -295,10 +297,10 @@ void IRAM_ATTR get_acc_fifo_task(void *pvParameters)
 
 int is_plugged_usb(void)
 {
-    uint32_t *aa = (uint32_t *)USB_SERIAL_JTAG_FRAM_NUM_REG;
-    uint32_t first = *aa;
+    uint32_t *serialFrame = (uint32_t *)USB_SERIAL_JTAG_FRAM_NUM_REG;
+    uint32_t firstSerFrame = *serialFrame;
     vTaskDelay(pdMS_TO_TICKS(10));
-    return (int)(*aa - first);
+    return (int)(*serialFrame - firstSerFrame);
 }
 void usbTask(void *pvParameters)
 {
@@ -327,6 +329,7 @@ void stimTask(void *pvParameters)
 {
     unsigned long stim_timestamp_us = 0;
     char stim_time_header[8] = {'S', 'T', 'I', 'M', 'T', 'I', 'M', 'E'};
+    // #TODO use MUTEX
     while (1)
     {
         if (gaitGuide.goLeft || gaitGuide.goRight)
@@ -363,6 +366,8 @@ void setup()
     log_i("Initialising GaitGuide");
     Wire.setPins(I2C_SDA, I2C_SCL);
     delay(1);
+
+    // Init LRA-Drivers
     // drv.setTrigger(TRIGGER_Right, TRIGGER_Left);
     drv.setEnablePins(ENABLE_Right, ENABLE_Left);
     drv.begin(&Wire);
@@ -370,6 +375,19 @@ void setup()
     drv.init();
 
     drv.disable();
+
+    // Init lipo battery gauge
+    lipo.begin();
+    if (!lipo.begin(Wire)) // Connect to the MAX17048
+    {
+        log_w("Battery gauge not detected.");
+    }
+    else
+    {
+        lipo.quickStart();
+        gaitGuide.setBatteryGauge(&lipo);
+    }
+
     usb_init();
 
     ble_setup(deviceName);

@@ -170,9 +170,8 @@ void DRV2605_UTIL::init(DRV2605_Autocal_t auto_config)
     // Adafruit_DRV2605::begin();
     DRV2605_UTIL::registerDefault();
     DRV2605_UTIL::autoCalibrate();
-    bool is_open_loop = true; // #TODO use flash memory and or "Calibration pin"
 
-    if (is_open_loop)
+    if (use_open_loop)
     {
         Adafruit_DRV2605::setRealtimeValue(0x00);
         Adafruit_DRV2605::writeRegister8(0x20,        // LRA Open Loop Period Register - LRA open-loop period (μs) = OL_LRA_PERIOD[6:0] × 98.46 μs

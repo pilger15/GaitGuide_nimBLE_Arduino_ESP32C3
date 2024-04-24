@@ -10,14 +10,16 @@ typedef enum
 {
     BLE_SERVER_UUID = 0xF000,
     BLE_DEVICE_INFO_SERVICE_UUID = 0x180A,
+    BLE_BATTERY_SERVICE_UUID = 0x180F,
     BLE_LRA_CONTROL_SERVICE_UUID = 0x1111,
     BLE_LRA_DIAG_SERVICE_UUID = 0x2220
 } ServiceUUID_t;
 
 typedef enum
 {
-    // DEVICE_INFO_SERVICE
+    // BATTERY_SERVICE
     BLE_BATTERY_LEVEL_CHARACTERISTIC_UUID = 0x2A19,
+    // DEVICE_INFO_SERVICE
     // BLE_TX_POWER_LEVEL_CHARACTERISTIC_UUID = 0x2A07,
     BLE_FIRMWARE_REVISION_CHARACTERISTIC_UUID = 0x2A26,
 
@@ -82,14 +84,26 @@ class ServerCallbacks : public NimBLEServerCallbacks
 /** Handler class for characteristic actions */
 class CharacteristicCallbacks : public NimBLECharacteristicCallbacks
 {
+    uint8_t incrementer = 0;
     GaitGuide &gaitGuide = GaitGuide::getInstance();
     void onRead(NimBLECharacteristic *pCharacteristic)
     {
+        switch (pCharacteristic->getUUID().getNative()->u16.value)
+        {
+        case BLE_BATTERY_LEVEL_CHARACTERISTIC_UUID:
+            incrementer++;
+            pCharacteristic->setValue(gaitGuide.batteryLevel());
+            ESP_LOGD(TAG_BLE, , "[%s] Battery level %d", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue()[0] + 48);
+            break;
+        default:
 
-        ESP_LOGI(TAG_BLE, "%s: onRead(), value: %s", pCharacteristic->getUUID().toString().c_str(), pCharacteristic->getValue().c_str());
-    };
+            ESP_LOGD(TAG_BLE, "Undefined BLE-Characteristic");
+            break;
+        }
+    }
 
-    void onWrite(NimBLECharacteristic *pCharacteristic)
+    void
+    onWrite(NimBLECharacteristic *pCharacteristic)
     {
         const uint8_t *data;
 

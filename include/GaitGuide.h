@@ -15,6 +15,7 @@
 #define GAITGUIDE_MANAGER_H
 
 #include <Arduino.h>
+#include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h>
 #include "nvs_flash.h"
 #include "nvs.h"
 
@@ -42,6 +43,12 @@ class GaitGuide
 public:
     static GaitGuide &getInstance();
 
+    SFE_MAX1704X *m_lipo;
+    void setBatteryGauge(SFE_MAX1704X *lipo)
+    {
+        m_lipo = lipo;
+    }
+
     bool goRight = false;
     bool goLeft = false;
 
@@ -51,7 +58,7 @@ public:
     std::string getFirmwareVersion() const;
     void setFirmwareVersion(std::string newVersion);
 
-    uint8_t batteryLevel() const;
+    uint8_t batteryLevel();
     void batteryLevel(uint8_t batteryLevel);
 
     gaitGuide_stimMode_t stimMode() const;
@@ -86,7 +93,7 @@ private:
     GaitGuide(const GaitGuide &) = delete;
     GaitGuide &operator=(const GaitGuide &) = delete;
     uint8_t _deviceId;
-    std::string _firmwareVersion = "1";
+    std::string _firmwareVersion = "2";
 
     void initialiseNVS()
     {

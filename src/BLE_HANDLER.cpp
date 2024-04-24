@@ -20,6 +20,8 @@ void ble_setup(const std::string &deviceName)
     NimBLEServer *pServer = NimBLEDevice::createServer();
 
     NimBLEService *controlService = pServer->createService((uint16_t)BLE_LRA_CONTROL_SERVICE_UUID);
+    NimBLEService *batteryService = pServer->createService((uint16_t)BLE_BATTERY_SERVICE_UUID);
+
     // NimBLEService *diagService = pServer->createService((uint16_t)BLE_LRA_DIAG_SERVICE_UUID);
     pServer->setCallbacks(new ServerCallbacks);
     // NimBLECharacteristic *pNonSecureCharacteristic = pService->createCharacteristic("1234", NIMBLE_PROPERTY::READ );
@@ -51,6 +53,13 @@ void ble_setup(const std::string &deviceName)
     BLE_Duration_LAT->setCallbacks(&chrCallbacks);
     BLE_Duration_LAT->setValue((uint16_t)0x0000);
 
+    // Battery sertvice
+    NimBLECharacteristic *BLE_Battery_Level = batteryService->createCharacteristic((uint16_t)BLE_BATTERY_LEVEL_CHARACTERISTIC_UUID,
+                                                                                   NIMBLE_PROPERTY::READ,
+                                                                                   1);
+    BLE_Battery_Level->setCallbacks(&chrCallbacks);
+    BLE_Battery_Level->setValue((uint8_t)0xFF);
+
     /*
       READ         =  BLE_GATT_CHR_F_READ,
       READ_ENC     =  BLE_GATT_CHR_F_READ_ENC,
@@ -65,12 +74,13 @@ void ble_setup(const std::string &deviceName)
       NOTIFY       =  BLE_GATT_CHR_F_NOTIFY,
       INDICATE     =  BLE_GATT_CHR_F_INDICATE*/
     controlService->start();
+    batteryService->start();
     // diagService->start();
     //  pNonSecureCharacteristic->setValue("Hello Non Secure BLE");
     //  pSecureCharacteristic->setValue("Hello Secure BLE");
     NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID((uint16_t)BLE_LRA_CONTROL_SERVICE_UUID); // TODO
-    // pAdvertising->addServiceUUID((uint16_t)BLE_LRA_DIAG_SERVICE_UUID);    // TODO
+    pAdvertising->addServiceUUID((uint16_t)BLE_LRA_CONTROL_SERVICE_UUID);
+    pAdvertising->addServiceUUID((uint16_t)BLE_BATTERY_SERVICE_UUID);
     pAdvertising->start();
     // register GaitGuide callbacks
     auto &gaitGuide = GaitGuide::getInstance();

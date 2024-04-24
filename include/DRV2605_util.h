@@ -243,6 +243,7 @@ private:
 	bool m_enable_state[2] = {false, false};
 
 	bool m_is_timescale_1ms = false;
+	bool use_open_loop = true;
 };
 
 #endif // DRV2605_UTIL_H

@@ -39,8 +39,11 @@ void GaitGuide::setFirmwareVersion(std::string newVersion)
     _firmwareVersion = newVersion;
 }
 
-uint8_t GaitGuide::batteryLevel() const
+uint8_t GaitGuide::batteryLevel()
 {
+    float soc = m_lipo->getSOC();
+    m_batteryLevel = static_cast<uint8_t>(soc);
+
     return m_batteryLevel;
 }
 
@@ -99,6 +102,8 @@ void GaitGuide::setAmplitude(const uint8_t data)
     */
     // m_duration[0] = data[0];
 }
+
+// Set duration triggers stimulation with amplitude
 void GaitGuide::setDuration(const uint16_t data, bool driver_side)
 {
     m_duration[0] = data;
