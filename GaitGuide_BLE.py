@@ -72,7 +72,7 @@ async def run():
 
         if Bat: 
             batteryLevel = await read_characteristic(GaitGuide, Bat)
-            batteryLevel_int = int.from_bytes(batteryLevel, "little")  # use "big" for big-endian
+            batteryLevel_int = int.from_bytes(batteryLevel, "little")
 
         current_time = datetime.datetime.now()  # get the current date and time
 

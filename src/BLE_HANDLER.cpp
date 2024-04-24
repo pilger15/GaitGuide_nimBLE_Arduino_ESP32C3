@@ -79,8 +79,9 @@ void ble_setup(const std::string &deviceName)
     //  pNonSecureCharacteristic->setValue("Hello Non Secure BLE");
     //  pSecureCharacteristic->setValue("Hello Secure BLE");
     NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID((uint16_t)BLE_LRA_CONTROL_SERVICE_UUID);
     pAdvertising->addServiceUUID((uint16_t)BLE_BATTERY_SERVICE_UUID);
+    pAdvertising->addServiceUUID((uint16_t)BLE_LRA_CONTROL_SERVICE_UUID);
+
     pAdvertising->start();
     // register GaitGuide callbacks
     auto &gaitGuide = GaitGuide::getInstance();
